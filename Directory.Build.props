@@ -1,0 +1,12 @@
+<Project>
+  <!-- Single place for the application identity and version. -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Product>AV1 Studio</Product>
+    <Company>AV1 Studio contributors</Company>
+    <Authors>AV1 Studio contributors</Authors>
+    <Copyright>Copyright © 2026 AV1 Studio contributors</Copyright>
+    <Description>AV1 Studio — a modern AV1 encoding application for Windows</Description>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,101 @@
+<Window x:Class="AV1Studio.Views.FirstRunWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Welcome to AV1 Studio — system check" Icon="pack://application:,,,/AV1Studio;component/Assets/av1studio.ico" Width="820" Height="720" MinWidth="600" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="20">
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Button DockPanel.Dock="Right" Content="Finish" Width="110" IsDefault="True" Style="{StaticResource PrimaryButtonStyle}" Click="OnFinish" />
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource AccentText}" Margin="0,0,12,0" />
+        </DockPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <DockPanel Margin="0,0,0,14">
+                    <Image DockPanel.Dock="Left" Source="pack://application:,,,/AV1Studio;component/Assets/av1studio.png" Width="56" Height="56" Margin="0,0,14,0" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Welcome to AV1 Studio" FontSize="22" FontWeight="Bold" />
+                        <TextBlock Text="A quick check of this PC. Nothing is changed or deleted — you decide everything." Foreground="{StaticResource SubtleText}" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="1 · THIS PC" Style="{StaticResource CardTitle}" />
+                        <TextBlock Text="{Binding SystemInfo.Summary}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="2 · REQUIRED TOOLS" Style="{StaticResource CardTitle}" />
+                        <ItemsControl ItemsSource="{Binding DependencyRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="140" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Status}" TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource DangerText}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Ok}" Value="True"><Setter Property="Foreground" Value="{StaticResource SuccessText}" /></DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,8"
+                                   Text="FFmpeg + FFprobe (with libsvtav1 and libvmaf) are needed for encoding; ab-av1 is only needed for AB-AV1 automatic-quality mode. Downloads come directly from the official distributors (github.com/BtbN/FFmpeg-Builds, github.com/alexheretic/ab-av1) into this app's data folder." />
+                        <WrapPanel>
+                            <Button x:Name="DownloadButton" Content="Download missing tools" Click="OnDownload" Margin="0,0,8,6" Style="{StaticResource PrimaryButtonStyle}" />
+                            <Button Content="I already have them — locate…" Click="OnLocate" Margin="0,0,8,6" />
+                            <Button Content="Check again" Command="{Binding RedetectToolsCommand}" Margin="0,0,8,6" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="3 · AV1 ENCODERS ON THIS PC" Style="{StaticResource CardTitle}" />
+                        <ItemsControl ItemsSource="{Binding Tools.EncoderAvailability}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBlock FontWeight="Bold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="✕" /><Setter Property="Foreground" Value="{StaticResource DangerText}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Available}" Value="True"><Setter Property="Text" Value="✓" /><Setter Property="Foreground" Value="{StaticResource SuccessText}" /></DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Reason}" TextWrapping="Wrap" Foreground="{StaticResource SubtleText}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="{Binding HardwareRecommendation}" TextWrapping="Wrap" Foreground="{StaticResource AccentText}" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="4 · TWO WAYS TO ENCODE" Style="{StaticResource CardTitle}" />
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"><Run Text="AB-AV1 · AUTOMATIC QUALITY — " FontWeight="SemiBold" /><Run Text="you pick a target quality (VMAF); the right CRF is found for every file automatically. Recommended for most people." /></TextBlock>
+                        <TextBlock TextWrapping="Wrap"><Run Text="MANUAL AV1 · FULL CONTROL — " FontWeight="SemiBold" /><Run Text="you choose the encoder, CRF/CQ, preset, filters, audio, subtitles and HDR handling yourself." /></TextBlock>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                                   Text="Safe defaults: sources are never deleted unless you turn that on; outputs are verified before anything else happens; CPU usage is set to Auto (keeps the PC responsive)." />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

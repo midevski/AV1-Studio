@@ -1,0 +1,762 @@
+<Window x:Class="AV1Studio.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:AV1Studio.Views"
+        xmlns:m="clr-namespace:AV1Studio.Models"
+        Title="AV1 Studio" Icon="pack://application:,,,/AV1Studio;component/Assets/av1studio.ico" Width="1500" Height="920" MinWidth="1280" MinHeight="660"
+        WindowStartupLocation="CenterScreen" AllowDrop="True"
+        Drop="OnDrop" DragOver="OnDragOver">
+
+    <Window.InputBindings>
+        <KeyBinding Key="O" Modifiers="Ctrl" Command="{Binding AddFilesCommand}" />
+        <KeyBinding Key="O" Modifiers="Ctrl+Shift" Command="{Binding AddFolderCommand}" />
+        <KeyBinding Key="F5" Command="{Binding AnalyzeAllCommand}" />
+        <KeyBinding Key="F5" Modifiers="Ctrl" Command="{Binding AnalyzeAndEncodeCommand}" />
+        <KeyBinding Key="E" Modifiers="Ctrl" Command="{Binding EncodeAnalyzedCommand}" />
+        <KeyBinding Key="P" Modifiers="Ctrl" Command="{Binding PauseResumeCommand}" />
+        <KeyBinding Key="P" Modifiers="Ctrl+Shift" Command="{Binding PauseCommand}" />
+        <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopCommand}" />
+        <KeyBinding Key="OemComma" Modifiers="Ctrl" Command="{Binding OpenSettingsCommand}" />
+        <KeyBinding Key="M" Modifiers="Ctrl" Command="{Binding OpenManualCommand}" />
+        <KeyBinding Key="R" Modifiers="Ctrl" Command="{Binding PreviewSelectedCommand}" />
+        <KeyBinding Key="L" Modifiers="Ctrl" Command="{Binding OpenLogFolderCommand}" />
+        <KeyBinding Key="T" Modifiers="Ctrl" Command="{Binding ChooseTracksCommand}" />
+        <KeyBinding Key="H" Modifiers="Ctrl" Command="{Binding ToggleHardwareCommand}" />
+        <KeyBinding Key="F1" Command="{Binding AboutCommand}" />
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />  <!-- toolbar -->
+            <RowDefinition Height="Auto" />  <!-- quick settings -->
+            <RowDefinition Height="*" />     <!-- queue + details -->
+            <RowDefinition Height="Auto" />  <!-- splitter -->
+            <RowDefinition Height="220" MinHeight="90" />  <!-- log / library / storage / system -->
+            <RowDefinition Height="Auto" />  <!-- status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ===================== Toolbar ===================== -->
+        <Border Grid.Row="0" Padding="10,8" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Top">
+                    <Button Command="{Binding CleanupPartialsCommand}" ToolTip="Find and delete leftover temporary (*.av1studio.partial) files from interrupted encodes" Margin="0,0,6,0"
+                            AutomationProperties.Name="Clean up temporary files">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE74D;" />
+                    </Button>
+                    <Button Command="{Binding OpenLogFolderCommand}" ToolTip="Open the log folder (Ctrl+L)" Margin="0,0,6,0" AutomationProperties.Name="Open log folder">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE9F9;" />
+                    </Button>
+                    <Button Command="{Binding AboutCommand}" ToolTip="About AV1 Studio and diagnostic report (F1)" Margin="0,0,6,0">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE946;" /><TextBlock Text=" About" /></StackPanel>
+                    </Button>
+                    <Button Command="{Binding OpenSettingsCommand}" ToolTip="Settings — CPU &amp; hardware, AB-AV1, output, safety, tools… (Ctrl+,)">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE713;" /><TextBlock Text=" Settings" /></StackPanel>
+                    </Button>
+                </StackPanel>
+                <WrapPanel>
+                    <Button Command="{Binding AddFilesCommand}" Margin="0,0,6,0" AutomationProperties.Name="Add files"
+                            ToolTip="Add video files to the queue in the selected mode (Ctrl+O)">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE710;" /><TextBlock Text=" Add files" /></StackPanel>
+                    </Button>
+                    <Button Command="{Binding AddFolderCommand}" Margin="0,0,16,0" AutomationProperties.Name="Add folder"
+                            ToolTip="Add a folder and everything inside it (Ctrl+Shift+O). With a destination set, the whole folder tree is recreated there: videos encoded, other files copied.">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8B7;" /><TextBlock Text=" Add folder" /></StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AnalyzeAllCommand}" Margin="0,0,6,0"
+                            ToolTip="AB-AV1 files only: run the CRF search (target VMAF → CRF) without encoding, to see CRF, VMAF and predicted sizes first (F5)">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE9D9;" /><TextBlock Text=" Analyze all" /></StackPanel>
+                    </Button>
+                    <Button Command="{Binding EncodeAnalyzedCommand}" Margin="0,0,6,0"
+                            ToolTip="Encode analyzed AB-AV1 files and every waiting Manual AV1 file (Ctrl+E)">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE768;" /><TextBlock Text=" Encode all" /></StackPanel>
+                    </Button>
+                    <Button Command="{Binding AnalyzeAndEncodeCommand}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,16,0"
+                            ToolTip="Process every queued file, one after another, each with its own mode and settings: (CRF search →) encode → verify → delete source if enabled → next (Ctrl+F5)">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE945;" /><TextBlock Text=" Start (analyze + encode all)" /></StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding PauseResumeCommand}" Margin="0,0,6,0"
+                            ToolTip="Pause freezes the running encode without losing anything; Resume continues exactly where it stopped (Ctrl+P)">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE769;" /><TextBlock Text="{Binding PauseResumeText, StringFormat=' {0}'}" /></StackPanel>
+                    </Button>
+                    <ToggleButton Command="{Binding PauseCommand}" IsChecked="{Binding PauseRequested, Mode=OneWay}" Margin="0,0,6,0"
+                                  ToolTip="Finish the current file, then stop the queue (Ctrl+Shift+P)">
+                        <TextBlock Text="Stop after current" />
+                    </ToggleButton>
+                    <Button Command="{Binding StopCommand}"
+                            ToolTip="Stop immediately: kills the running encode, deletes its partial output, never touches sources (Shift+F5)">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE71A;" Foreground="{StaticResource DangerText}" /><TextBlock Text=" Stop" /></StackPanel>
+                    </Button>
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ===================== Quick settings ===================== -->
+        <Border Grid.Row="1" Padding="10,8" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="380" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- folders -->
+                <Grid Grid.Row="0" Grid.Column="0" Margin="0,0,16,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Source" Style="{StaticResource Label}" Width="80" />
+                    <TextBox Grid.Column="1" Text="{Binding SourceFolder, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Source folder"
+                             ToolTip="Library folder to scan (e.g. D:\Movies). You can also drag &amp; drop files or folders anywhere in the window." />
+                    <Button Grid.Column="2" Content="Browse…" Command="{Binding BrowseSourceCommand}" Margin="6,0,0,0" />
+                    <Button Grid.Column="3" Command="{Binding ScanSourceCommand}" Margin="6,0,0,0" ToolTip="Add everything in the source folder to the queue">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE721;" /><TextBlock Text=" Scan" /></StackPanel>
+                    </Button>
+                </Grid>
+                <Grid Grid.Row="1" Grid.Column="0" Margin="0,0,16,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Destination" Style="{StaticResource Label}" Width="80" />
+                    <TextBox Grid.Column="1" Text="{Binding DestinationFolder, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Destination folder"
+                             ToolTip="Where AV1 files are written (e.g. E:\AV1 Library). Added folders are recreated here with their complete structure; files keep their names. Empty = next to each source file (with an _AV1 suffix)." />
+                    <Button Grid.Column="2" Content="Browse…" Command="{Binding BrowseDestinationCommand}" Margin="6,0,0,0" />
+                    <Button Grid.Column="3" Command="{Binding ClearDestinationCommand}" Margin="6,0,0,0" ToolTip="Write next to each source file" AutomationProperties.Name="Clear destination">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE894;" />
+                    </Button>
+                    <v:HelpTip Grid.Column="4" Text="{x:Static v:Tips.Mirror}" />
+                </Grid>
+                <DockPanel Grid.Row="2" Grid.Column="0" Margin="0,0,16,0">
+                    <TextBlock Text="New files" Style="{StaticResource Label}" Width="80" />
+                    <TextBlock Text="{Binding ModeHint}" Style="{StaticResource Hint}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                </DockPanel>
+
+                <!-- mode + profile -->
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Mode" Style="{StaticResource Label}" />
+                    <RadioButton Style="{StaticResource ModeToggle}" GroupName="mode" IsChecked="{Binding IsAbAv1Mode}" ToolTip="{x:Static v:Tips.ModeAbAv1}"
+                                 AutomationProperties.Name="AB-AV1 automatic quality mode">
+                        <StackPanel>
+                            <TextBlock Text="AB-AV1" FontWeight="Bold" />
+                            <TextBlock Text="AUTOMATIC QUALITY" FontSize="9.5" Opacity="0.85" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Style="{StaticResource ModeToggle}" GroupName="mode" IsChecked="{Binding IsManualMode}" ToolTip="{x:Static v:Tips.ModeManual}"
+                                 AutomationProperties.Name="Manual AV1 full control mode">
+                        <StackPanel>
+                            <TextBlock Text="MANUAL AV1" FontWeight="Bold" />
+                            <TextBlock Text="FULL CONTROL" FontSize="9.5" Opacity="0.85" />
+                        </StackPanel>
+                    </RadioButton>
+                    <TextBlock Text="Profile" Style="{StaticResource Label}" Margin="14,0,8,0" />
+                    <ComboBox ItemsSource="{Binding ProfileNames}" SelectedItem="{Binding SelectedProfile}" Width="150" ToolTip="{Binding SelectedProfileDescription}"
+                              AutomationProperties.Name="Profile" />
+                    <v:HelpTip Text="{x:Static v:Tips.Profile}" />
+                </StackPanel>
+
+                <!-- AB-AV1 quick settings -->
+                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6"
+                            Visibility="{Binding IsAbAv1Mode, Converter={StaticResource BoolVis}}">
+                    <TextBlock Text="Target VMAF" Style="{StaticResource Label}" />
+                    <ComboBox ItemsSource="{Binding VmafChoices}" IsEditable="True" Width="80" Text="{Binding TargetVmaf, UpdateSourceTrigger=LostFocus}"
+                              ToolTip="{x:Static v:Tips.Vmaf}" AutomationProperties.Name="Target VMAF" />
+                    <v:HelpTip Text="{x:Static v:Tips.Vmaf}" />
+                    <TextBlock Text="Preset" Style="{StaticResource Label}" Margin="14,0,8,0" />
+                    <Grid>
+                        <ComboBox ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding SelectedPreset}" DisplayMemberPath="Label" Width="250"
+                                  Visibility="{Binding HardwareEncoding, Converter={StaticResource NotEmptyVis}, ConverterParameter=invert}" ToolTip="{x:Static v:Tips.Preset}" />
+                        <ComboBox ItemsSource="{Binding HardwarePresetOptions}" SelectedItem="{Binding SelectedHardwarePreset}" DisplayMemberPath="Label" Width="250"
+                                  Visibility="{Binding HardwareEncoding, Converter={StaticResource BoolVis}}" ToolTip="{x:Static v:Tips.Preset}" />
+                    </Grid>
+                    <ToggleButton IsChecked="{Binding HardwareEncoding}" IsEnabled="{Binding CanToggleHardware}" Margin="10,0,0,0" Padding="10,4"
+                                  ToolTip="{Binding HardwareToggleTooltip}" ToolTipService.ShowOnDisabled="True">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Icon}" Text="&#xE7F4;" />
+                            <TextBlock Text="{Binding HardwareToggleText}" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <v:HelpTip Text="{x:Static v:Tips.Hardware}" />
+                </StackPanel>
+
+                <!-- Manual AV1 quick settings -->
+                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6"
+                            Visibility="{Binding IsManualMode, Converter={StaticResource BoolVis}}">
+                    <TextBlock Text="Encoder" Style="{StaticResource Label}" />
+                    <ComboBox ItemsSource="{Binding ManualEncoderChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.Encoder}"
+                              Width="230" ToolTip="{Binding UnavailableEncodersText}" AutomationProperties.Name="Manual encoder" />
+                    <TextBlock Text="{Binding QualityName}" Style="{StaticResource Label}" Margin="12,0,8,0" />
+                    <TextBox Width="52" Text="{Binding Manual.Quality, Converter={StaticResource NullableNum}, UpdateSourceTrigger=LostFocus}"
+                             ToolTip="{x:Static v:Tips.Crf}" AutomationProperties.Name="Quality value" />
+                    <v:HelpTip Text="{x:Static v:Tips.Crf}" />
+                    <TextBlock Text="Preset" Style="{StaticResource Label}" Margin="12,0,8,0" />
+                    <ComboBox ItemsSource="{Binding PresetChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.Preset}"
+                              Width="180" ToolTip="{x:Static v:Tips.Preset}" AutomationProperties.Name="Manual preset" />
+                    <Button Command="{Binding OpenManualCommand}" Margin="10,0,0,0" ToolTip="All Manual AV1 settings: video, filters, audio, subtitles, HDR, advanced, output, preview and command (Ctrl+M)">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE9E9;" /><TextBlock Text=" Manual AV1 settings…" /></StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <TextBlock Text="Concurrent jobs" Style="{StaticResource Label}" />
+                    <ComboBox ItemsSource="{Binding ConcurrencyChoices}" SelectedItem="{Binding ConcurrentJobs}" Width="70" ToolTip="{x:Static v:Tips.Concurrency}" />
+                    <CheckBox IsChecked="{Binding DeleteSource}" Margin="18,0,0,0" VerticalAlignment="Center" ToolTip="{x:Static v:Tips.DeleteSource}">
+                        <TextBlock Text="Delete source file after successful, verified encoding" Foreground="#FFB4A2" />
+                    </CheckBox>
+                    <v:HelpTip Text="{x:Static v:Tips.DeleteSource}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ===================== Queue + details ===================== -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="520" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="430" MinWidth="320" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0" Margin="10,8,4,4">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <TextBlock DockPanel.Dock="Left" Text="Library queue" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <ComboBox ItemsSource="{Binding StatusFilters}" SelectedItem="{Binding StatusFilter}" Width="130" Margin="0,0,6,0" ToolTip="Filter by status" />
+                        <TextBox x:Name="FilterBox" Width="200" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=250}" ToolTip="Filter by path (Ctrl+F)"
+                                 AutomationProperties.Name="Filter queue" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding CountsText}" Foreground="{StaticResource SubtleText}" Margin="14,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+
+                <!-- queue maintenance -->
+                <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <Button Command="{Binding ClearQueueCommand}" Margin="0,0,6,0" Padding="10,3"
+                            ToolTip="Remove every file that is not being processed from the queue. Files on disk are never touched.">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE894;" FontSize="12" /><TextBlock Text=" Clear Library Queue" /></StackPanel>
+                    </Button>
+                    <Button Content="Clear completed" Command="{Binding ClearCompletedCommand}" Margin="0,0,6,0" Padding="10,3" ToolTip="Remove completed files from the queue (they stay in the Library tab)" />
+                    <Button Content="Clear failed" Command="{Binding ClearFailedCommand}" Margin="0,0,6,0" Padding="10,3" />
+                    <Button Content="Retry failed" Command="{Binding RetryFailedCommand}" Margin="0,0,6,0" Padding="10,3" ToolTip="Put every failed or cancelled file back in the queue" />
+                    <Button Content="Remove selected" Command="{Binding RemoveSelectedCommand}" Margin="0,0,14,0" Padding="10,3" ToolTip="Remove the selected files from the queue (Del)" />
+                    <Button Command="{Binding MoveUpCommand}" Margin="0,0,2,0" Padding="8,3" ToolTip="Move up (Alt+Up)" AutomationProperties.Name="Move up"><TextBlock Style="{StaticResource Icon}" Text="&#xE70E;" FontSize="12" /></Button>
+                    <Button Command="{Binding MoveDownCommand}" Margin="0,0,14,0" Padding="8,3" ToolTip="Move down (Alt+Down)" AutomationProperties.Name="Move down"><TextBlock Style="{StaticResource Icon}" Text="&#xE70D;" FontSize="12" /></Button>
+                    <Button Content="Preview selected…" Command="{Binding PreviewSelectedCommand}" Padding="10,3" ToolTip="Encode a short sample of the selected file with its settings (Ctrl+R)" />
+                </WrapPanel>
+
+                <!-- folder progress -->
+                <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding FolderSummaries}" Visibility="{Binding HasFolders, Converter={StaticResource BoolVis}}" Margin="0,0,0,6">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Card}" Padding="10,6" Margin="0,0,0,4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock><Run Text="{Binding Title, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="  ·  " /><Run Text="{Binding State, Mode=OneWay}" Foreground="{StaticResource AccentText}" /></TextBlock>
+                                        <TextBlock Text="{Binding Details}" Style="{StaticResource Hint}" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="{Binding Overall, StringFormat='Overall {0:0}%'}" FontSize="11" />
+                                        <ProgressBar Value="{Binding Overall, Mode=OneWay}" Height="6" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                                        <TextBlock Text="{Binding VideosPct, StringFormat='Videos {0:0}%'}" FontSize="11" />
+                                        <ProgressBar Value="{Binding VideosPct, Mode=OneWay}" Height="6" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3" Margin="8,0,0,0">
+                                        <TextBlock Text="{Binding CopiesPct, StringFormat='Files copied {0:0}%'}" FontSize="11" />
+                                        <ProgressBar Value="{Binding CopiesPct, Mode=OneWay}" Height="6" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding CurrentOperation}" Style="{StaticResource Hint}" Margin="0,0,0,4"
+                           Visibility="{Binding CurrentOperation, Converter={StaticResource NotEmptyVis}}" TextTrimming="CharacterEllipsis" />
+
+                <Grid>
+                    <DataGrid x:Name="QueueGrid" ItemsSource="{Binding ItemsView}" SelectedItem="{Binding SelectedItem}"
+                              AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow"
+                              HeadersVisibility="Column" GridLinesVisibility="None" CanUserReorderColumns="True" CanUserSortColumns="False"
+                              EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.IsVirtualizingWhenGrouping="True" ScrollViewer.CanContentScroll="True"
+                              SelectionChanged="OnGridSelectionChanged" RowHeight="30" AutomationProperties.Name="Library queue">
+                        <DataGrid.InputBindings>
+                            <KeyBinding Key="Delete" Command="{Binding RemoveSelectedCommand}" />
+                            <KeyBinding Key="Up" Modifiers="Alt" Command="{Binding MoveUpCommand}" />
+                            <KeyBinding Key="Down" Modifiers="Alt" Command="{Binding MoveDownCommand}" />
+                        </DataGrid.InputBindings>
+                        <DataGrid.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Margin="4,8,0,4" FontWeight="SemiBold" Foreground="{StaticResource AccentText}">
+                                            <Run Text="📁" /><Run Text=" " /><Run Text="{Binding Name, Mode=OneWay}" /><Run Text="   " />
+                                            <Run Text="{Binding ItemCount, Mode=OneWay, StringFormat='{}{0} file(s)'}" Foreground="{StaticResource SubtleText}" FontWeight="Normal" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </DataGrid.GroupStyle>
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Encode selected" Command="{Binding EncodeSelectedCommand}" />
+                                <MenuItem Header="Analyze selected (AB-AV1)" Command="{Binding AnalyzeSelectedCommand}" />
+                                <MenuItem Header="Preview (encode a sample)…" Command="{Binding PreviewSelectedCommand}" InputGestureText="Ctrl+R" />
+                                <Separator />
+                                <MenuItem Header="Use AB-AV1 (automatic quality)" Command="{Binding SetModeAbAv1Command}" />
+                                <MenuItem Header="Use Manual AV1 (full control)" Command="{Binding SetModeManualCommand}" />
+                                <MenuItem Header="Apply current settings to selected…" Command="{Binding ApplySettingsToSelectedCommand}"
+                                          ToolTip="Queued files keep the settings they were added with. Use this to update them to the current settings." />
+                                <MenuItem Header="Choose audio / subtitle tracks…" Command="{Binding ChooseTracksCommand}" InputGestureText="Ctrl+T" />
+                                <MenuItem Header="Force new CRF search (AB-AV1)" Command="{Binding ReanalyzeSelectedCommand}" />
+                                <Separator />
+                                <MenuItem Header="Cancel" Command="{Binding CancelSelectedCommand}" />
+                                <MenuItem Header="Skip" Command="{Binding SkipSelectedCommand}" />
+                                <MenuItem Header="Retry" Command="{Binding RetrySelectedCommand}" />
+                                <MenuItem Header="Move up" Command="{Binding MoveUpCommand}" InputGestureText="Alt+Up" />
+                                <MenuItem Header="Move down" Command="{Binding MoveDownCommand}" InputGestureText="Alt+Down" />
+                                <Separator />
+                                <MenuItem Header="Open source folder" Command="{Binding OpenSourceFolderCommand}" />
+                                <MenuItem Header="Open output folder" Command="{Binding OpenOutputFolderCommand}" />
+                                <MenuItem Header="Copy source path" Command="{Binding CopyTextCommand}" CommandParameter="{Binding SelectedItem.SourcePath}" />
+                                <Separator />
+                                <MenuItem Header="Remove from queue" Command="{Binding RemoveSelectedCommand}" InputGestureText="Del" />
+                                <MenuItem Header="Clear finished items" Command="{Binding ClearFinishedCommand}" />
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="File" Width="250">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding SourcePath}">
+                                            <TextBlock Text="{Binding KindIcon}" Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Status" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding StatusDetail}">
+                                            <Ellipse Width="8" Height="8" Fill="{Binding Status, Converter={StaticResource StatusBrush}}" Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding StatusText}" Foreground="{Binding Status, Converter={StaticResource StatusBrush}}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Progress" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Grid VerticalAlignment="Center" Margin="0,0,6,0">
+                                            <ProgressBar Height="14" Minimum="0" Maximum="100" Value="{Binding Progress, Mode=OneWay}"
+                                                         IsIndeterminate="{Binding Status, Converter={StaticResource StatusIs}, ConverterParameter=Analyzing}" />
+                                            <TextBlock HorizontalAlignment="Center" FontSize="10.5" Text="{Binding Progress, StringFormat={}{0:0.0}%}"
+                                                       Visibility="{Binding Status, Converter={StaticResource StatusIs}, ConverterParameter='Encoding,Verifying'}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Mode" Binding="{Binding ModeText}" Width="80" />
+                            <DataGridTextColumn Header="Target" Binding="{Binding TargetText}" Width="72" />
+                            <DataGridTextColumn Header="Encoder" Binding="{Binding EncoderText}" Width="110" />
+                            <DataGridTextColumn Header="CRF" Binding="{Binding CrfText}" Width="70" />
+                            <DataGridTextColumn Header="Preset" Binding="{Binding PresetText}" Width="96" />
+                            <DataGridTextColumn Header="Size" Binding="{Binding SourceSizeText}" Width="72" />
+                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" Width="66" />
+                            <DataGridTextColumn Header="Resolution" Binding="{Binding Resolution}" Width="84" />
+                            <DataGridTextColumn Header="Codec" Binding="{Binding VideoCodec}" Width="58" />
+                            <DataGridTextColumn Header="HDR" Binding="{Binding HdrText}" Width="60" />
+                            <DataGridTextColumn Header="VMAF" Binding="{Binding VmafText}" Width="54" />
+                            <DataGridTextColumn Header="Est. size" Binding="{Binding EstimatedSizeText}" Width="72" />
+                            <DataGridTextColumn Header="Output" Binding="{Binding OutputSizeText}" Width="72" />
+                            <DataGridTextColumn Header="Ratio" Binding="{Binding CompressionText}" Width="100" />
+                            <DataGridTextColumn Header="FPS" Binding="{Binding CurrentFps, StringFormat={}{0:0.#}, TargetNullValue=''}" Width="50" />
+                            <DataGridTextColumn Header="Bitrate" Binding="{Binding AverageBitrateKbps, StringFormat={}{0:0} kb/s, TargetNullValue=''}" Width="80" />
+                            <DataGridTextColumn Header="ETA" Binding="{Binding EtaText}" Width="62" />
+                            <DataGridTextColumn Header="Relative path" Binding="{Binding RelativePath}" Width="260" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                Visibility="{Binding Items.Count, Converter={StaticResource NotEmptyVis}, ConverterParameter=invert, FallbackValue=Collapsed}">
+                        <TextBlock Style="{StaticResource Icon}" Text="&#xE8B7;" FontSize="44" HorizontalAlignment="Center" Foreground="{StaticResource SubtleText}" />
+                        <TextBlock Text="Drop video files or folders here" FontSize="16" Margin="0,10,0,4" HorizontalAlignment="Center" />
+                        <TextBlock Text="or choose a source folder above and press Scan" Foreground="{StaticResource SubtleText}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent" ResizeBehavior="PreviousAndNext" />
+
+            <!-- ===================== Details pane ===================== -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Padding="4,8,10,4">
+                <Grid>
+                    <TextBlock Text="Select a file to see its analysis, encoding progress and commands."
+                               Foreground="{StaticResource SubtleText}" TextWrapping="Wrap" Margin="8,20"
+                               Visibility="{Binding HasSelection, Converter={StaticResource NotEmptyVis}, ConverterParameter=invert}" />
+                    <StackPanel DataContext="{Binding SelectedItem}"
+                                Visibility="{Binding DataContext.HasSelection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVis}}">
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding FileName}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding RelativePath}" Foreground="{StaticResource SubtleText}" TextWrapping="Wrap" Margin="0,2,0,8" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="10" Height="10" Fill="{Binding Status, Converter={StaticResource StatusBrush}}" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" Foreground="{Binding Status, Converter={StaticResource StatusBrush}}" />
+                                    <TextBlock Text="{Binding ModeText, StringFormat='  ·  {0}'}" Foreground="{StaticResource SubtleText}" />
+                                    <TextBlock Text="{Binding SourceStateText}" Margin="12,0,0,0" FontWeight="SemiBold" Foreground="{StaticResource SuccessText}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding StatusDetail}" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{StaticResource SubtleText}"
+                                           Visibility="{Binding StatusDetail, Converter={StaticResource NotEmptyVis}}" />
+                                <TextBlock Text="{Binding Activity}" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{StaticResource AccentText}"
+                                           Visibility="{Binding Activity, Converter={StaticResource NotEmptyVis}}" />
+                                <TextBlock Text="{Binding EncodeParameters}" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{StaticResource SubtleText}" FontSize="12"
+                                           Visibility="{Binding EncodeParameters, Converter={StaticResource NotEmptyVis}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- error: what happened / why / what you can do -->
+                        <Border Style="{StaticResource Card}" BorderBrush="{StaticResource DangerText}" Visibility="{Binding ErrorMessage, Converter={StaticResource NotEmptyVis}}">
+                            <StackPanel>
+                                <TextBlock Text="✖ WHAT HAPPENED" Style="{StaticResource CardTitle}" Foreground="{StaticResource DangerText}" />
+                                <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                <TextBlock Text="WHY" Style="{StaticResource CardTitle}" Visibility="{Binding ErrorWhy, Converter={StaticResource NotEmptyVis}}" />
+                                <TextBlock Text="{Binding ErrorWhy}" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="{Binding ErrorWhy, Converter={StaticResource NotEmptyVis}}" />
+                                <TextBlock Text="WHAT YOU CAN DO" Style="{StaticResource CardTitle}" Visibility="{Binding ErrorFix, Converter={StaticResource NotEmptyVis}}" />
+                                <TextBlock Text="{Binding ErrorFix}" TextWrapping="Wrap" Visibility="{Binding ErrorFix, Converter={StaticResource NotEmptyVis}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- AB-AV1 analysis -->
+                        <Border Style="{StaticResource Card}" Visibility="{Binding ModeText, Converter={StaticResource EnumVis}, ConverterParameter=AB-AV1}">
+                            <StackPanel>
+                                <TextBlock Text="AB-AV1 · AUTOMATIC QUALITY (CRF SEARCH)" Style="{StaticResource CardTitle}" ToolTip="{x:Static v:Tips.CrfSearch}" />
+                                <UniformGrid Columns="3" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="Detected CRF" Style="{StaticResource Label}" />
+                                        <TextBlock Text="{Binding Search.Crf, Converter={StaticResource Num}, FallbackValue='—', TargetNullValue='—'}" FontSize="24" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Measured VMAF" Style="{StaticResource Label}" />
+                                        <TextBlock Text="{Binding Search.Vmaf, Converter={StaticResource Num}, ConverterParameter=0.00, FallbackValue='—', TargetNullValue='—'}" FontSize="24" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Estimated size" Style="{StaticResource Label}" />
+                                        <TextBlock Text="{Binding EstimatedSizeText, FallbackValue='—'}" FontSize="24" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </UniformGrid>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="CRF override" Style="{StaticResource Label}" />
+                                    <TextBox Width="70" Text="{Binding CrfOverrideText, UpdateSourceTrigger=LostFocus}"
+                                             ToolTip="Leave empty to use the CRF found by AB-AV1. A value here is used for this file's encode instead." />
+                                    <TextBlock Text="empty = use detected" Foreground="{StaticResource SubtleText}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="Search attempts" Style="{StaticResource Label}" />
+                                <ItemsControl ItemsSource="{Binding Attempts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type m:CrfAttempt}">
+                                            <Grid Margin="0,1" TextElement.FontFamily="{StaticResource MonoFont}" TextElement.FontSize="12">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                <TextBlock><Run Text="CRF " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding Crf, Mode=OneWay, Converter={StaticResource Num}}" FontWeight="SemiBold" /></TextBlock>
+                                                <TextBlock Grid.Column="1"><Run Text="VMAF " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding Vmaf, Mode=OneWay, Converter={StaticResource Num}, ConverterParameter=0.00}" FontWeight="SemiBold" /></TextBlock>
+                                                <TextBlock Grid.Column="2" Foreground="{StaticResource SubtleText}"><Run Text="{Binding PredictedSize, Mode=OneWay, Converter={StaticResource Bytes}}" /><Run Text=" (" /><Run Text="{Binding PredictedPercent, Mode=OneWay, Converter={StaticResource Num}, ConverterParameter=0}" /><Run Text="%)" /></TextBlock>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Manual AV1 -->
+                        <Border Style="{StaticResource Card}" Visibility="{Binding ModeText, Converter={StaticResource EnumVis}, ConverterParameter=Manual AV1}">
+                            <StackPanel>
+                                <TextBlock Text="MANUAL AV1 · FULL CONTROL" Style="{StaticResource CardTitle}" />
+                                <TextBlock TextWrapping="Wrap"><Run Text="{Binding EncoderText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding TargetText, Mode=OneWay}" /><Run Text=" · preset " /><Run Text="{Binding PresetText, Mode=OneWay}" /></TextBlock>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Quality override for this file" Style="{StaticResource Label}" />
+                                    <TextBox Width="70" Text="{Binding CrfOverrideText, UpdateSourceTrigger=LostFocus}"
+                                             ToolTip="Empty = use the quality this file was queued with. A value here applies to this file only." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- live statistics -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="PROGRESS" Style="{StaticResource CardTitle}" />
+                                <Grid Margin="0,0,0,8">
+                                    <ProgressBar Height="18" Minimum="0" Maximum="100" Value="{Binding Progress, Mode=OneWay}" />
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11" Text="{Binding Progress, StringFormat={}{0:0.0}%}" />
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="FPS" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentFps, StringFormat={}{0:0.0}, TargetNullValue='N/A'}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Average FPS" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding AverageFps, StringFormat={}{0:0.0}, TargetNullValue='N/A'}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="1" Text="Current bitrate" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentBitrateText}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Average bitrate" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding AverageBitrateText}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="2" Text="Elapsed" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ElapsedText}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="ETA" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding EtaText}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="3" Text="CPU (encoder)" Style="{StaticResource Label}" ToolTip="CPU used by the encoder process tree, % of the whole machine" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CpuPercent, StringFormat={}{0:0}%, TargetNullValue='N/A'}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="3" Grid.Column="2" Text="GPU encoder" Style="{StaticResource Label}"
+                                               ToolTip="Utilisation of the GPU's video-encode engine by the encoder processes (Windows counters). N/A for CPU encoders or when not measurable. This is not the same as normal GPU (3D) usage." />
+                                    <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding GpuPercent, StringFormat={}{0:0}%, TargetNullValue='N/A'}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="4" Text="RAM" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RamBytes, Converter={StaticResource Bytes}}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="4" Grid.Column="2" Text="Speed" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding Speed, StringFormat={}{0:0.00}x, TargetNullValue='N/A'}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="5" Text="Output size" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding OutputSizeText}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="5" Grid.Column="2" Text="Projected" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding ProjectedSize, Converter={StaticResource Bytes}}" Style="{StaticResource Value}" />
+                                    <TextBlock Grid.Row="6" Text="Compression" Style="{StaticResource Label}" />
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding CompressionText}" Style="{StaticResource Value}" />
+                                </Grid>
+                                <TextBlock Text="{Binding OutputPath}" TextWrapping="Wrap" Foreground="{StaticResource SubtleText}" Margin="0,8,0,0"
+                                           Visibility="{Binding OutputPath, Converter={StaticResource NotEmptyVis}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <Button DockPanel.Dock="Right" Content="Choose tracks…" Padding="10,3"
+                                            Command="{Binding DataContext.ChooseTracksCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                    <TextBlock Text="STREAMS" Style="{StaticResource CardTitle}" VerticalAlignment="Center" Margin="0" />
+                                </DockPanel>
+                                <TextBlock Text="{Binding MediaSummary}" TextWrapping="Wrap" FontSize="12" />
+                                <TextBlock Text="COLOR / HDR" Style="{StaticResource CardTitle}" Margin="0,12,0,6" />
+                                <TextBlock Text="{Binding ColorSummary}" TextWrapping="Wrap" FontSize="12" />
+                            </StackPanel>
+                        </Border>
+
+                        <Expander Header="Commands (exact invocations)" Margin="0,0,0,10">
+                            <StackPanel Margin="0,6,0,0">
+                                <DockPanel Margin="0,0,0,4" Visibility="{Binding LastCrfSearchCommand, Converter={StaticResource NotEmptyVis}}">
+                                    <Button DockPanel.Dock="Right" Content="Copy" Padding="10,2"
+                                            Command="{Binding DataContext.CopyTextCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding LastCrfSearchCommand}" />
+                                    <TextBlock Text="Last ab-av1 crf-search" Style="{StaticResource Label}" />
+                                </DockPanel>
+                                <TextBox Style="{StaticResource MonoBox}" Text="{Binding LastCrfSearchCommand, Mode=OneWay}" MaxHeight="120"
+                                         Visibility="{Binding LastCrfSearchCommand, Converter={StaticResource NotEmptyVis}}" />
+                                <DockPanel Margin="0,10,0,4">
+                                    <Button DockPanel.Dock="Right" Content="Copy" Padding="10,2"
+                                            Command="{Binding DataContext.CopyTextCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding LastEncodeCommand}" />
+                                    <TextBlock Text="Last encode" Style="{StaticResource Label}" />
+                                </DockPanel>
+                                <TextBox Style="{StaticResource MonoBox}" Text="{Binding LastEncodeCommand, Mode=OneWay}" MaxHeight="140" />
+                                <DockPanel Margin="0,10,0,4">
+                                    <Button DockPanel.Dock="Right" Content="Copy" Padding="10,2"
+                                            Command="{Binding DataContext.CopyTextCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding DataContext.SelectedPreviewCommands, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                    <TextBlock Text="Command that will run" Style="{StaticResource Label}" />
+                                </DockPanel>
+                                <TextBox Style="{StaticResource MonoBox}" MaxHeight="260"
+                                         Text="{Binding DataContext.SelectedPreviewCommands, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}" />
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Header="File log" IsExpanded="True">
+                            <ItemsControl ItemsSource="{Binding ItemLog}" Margin="0,6,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}" FontSize="11.5" TextWrapping="Wrap" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+
+        <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" Background="Transparent" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
+
+        <!-- ===================== Log / library / storage / system ===================== -->
+        <TabControl Grid.Row="4" Margin="10,0,10,4">
+            <TabItem Header="Log">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Margin="6,0,0,0" Width="150">
+                        <ComboBox ItemsSource="{Binding LogLevelFilters}" SelectedItem="{Binding LogLevelFilter}" Margin="0,0,0,4" ToolTip="Show only errors, warnings, commands or raw tool output" />
+                        <TextBox Text="{Binding LogSearch, UpdateSourceTrigger=PropertyChanged, Delay=250}" Margin="0,0,0,4" ToolTip="Search the log" AutomationProperties.Name="Search log" />
+                        <CheckBox Content="Raw tool output" IsChecked="{Binding ShowToolOutput}" Margin="0,0,0,4"
+                                  ToolTip="Also show every line printed by FFmpeg and ab-av1 (always written to the log file)" />
+                        <WrapPanel>
+                            <Button Content="Copy" Command="{Binding CopyLogCommand}" Margin="0,0,4,4" ToolTip="Copy the visible entries" />
+                            <Button Content="Export…" Command="{Binding ExportLogCommand}" Margin="0,0,4,4" />
+                            <Button Content="Folder" Command="{Binding OpenLogFolderCommand}" Margin="0,0,4,4" />
+                            <Button Content="Clear" Command="{Binding ClearLogCommand}" Margin="0,0,4,4" ToolTip="Clear this view (the log file is kept)" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <ListBox x:Name="LogList" ItemsSource="{Binding LogView}" VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Log">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="Padding" Value="4,0" />
+                                <Setter Property="MinHeight" Value="0" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="12" TextWrapping="Wrap" Foreground="{Binding Level, Converter={StaticResource LogBrush}}">
+                                    <Run Text="{Binding TimeText, Mode=OneWay}" Foreground="{StaticResource SubtleText}" />
+                                    <Run Text="{Binding Display, Mode=OneWay}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Copy line" Click="OnCopyLogLine" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                    </ListBox>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Library">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,4,0,4">
+                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0">
+                            <Run Text="Encoded: " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding LibraryOriginalText, Mode=OneWay}" FontWeight="SemiBold" />
+                            <Run Text=" → " /><Run Text="{Binding LibraryEncodedText, Mode=OneWay}" FontWeight="SemiBold" />
+                            <Run Text="   saved " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding LibrarySavedText, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource SuccessText}" />
+                        </TextBlock>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <TextBox Width="180" Text="{Binding LibrarySearch, UpdateSourceTrigger=PropertyChanged, Delay=250}" ToolTip="Search by path" />
+                            <Button Content="Clear filters" Command="{Binding ClearLibraryFiltersCommand}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <WrapPanel VerticalAlignment="Center">
+                            <ToggleButton Style="{StaticResource Chip}" Content="AV1" IsChecked="{Binding FilterAv1}" />
+                            <ToggleButton Style="{StaticResource Chip}" Content="Not encoded" IsChecked="{Binding FilterNotEncoded}" />
+                            <ToggleButton Style="{StaticResource Chip}" Content="Completed" IsChecked="{Binding FilterCompleted}" />
+                            <ToggleButton Style="{StaticResource Chip}" Content="Failed" IsChecked="{Binding FilterFailed}" />
+                            <ToggleButton Style="{StaticResource Chip}" Content="HDR" IsChecked="{Binding FilterHdr}" />
+                            <ToggleButton Style="{StaticResource Chip}" Content="1080p" IsChecked="{Binding Filter1080}" />
+                            <ToggleButton Style="{StaticResource Chip}" Content="1440p" IsChecked="{Binding Filter1440}" />
+                            <ToggleButton Style="{StaticResource Chip}" Content="4K" IsChecked="{Binding Filter4K}" />
+                        </WrapPanel>
+                    </DockPanel>
+                    <DataGrid ItemsSource="{Binding LibraryView}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="None"
+                              EnableRowVirtualization="True" RowHeight="26" AutomationProperties.Name="Library">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="260" />
+                            <DataGridTextColumn Header="Original" Binding="{Binding OriginalText}" SortMemberPath="OriginalSize" Width="85" />
+                            <DataGridTextColumn Header="Encoded" Binding="{Binding EncodedText}" SortMemberPath="EncodedSize" Width="85" />
+                            <DataGridTextColumn Header="Saved" Binding="{Binding SavedText}" SortMemberPath="Saved" Width="120" />
+                            <DataGridTextColumn Header="Ratio" Binding="{Binding RatioText}" SortMemberPath="Ratio" Width="70" />
+                            <DataGridTextColumn Header="Codec" Binding="{Binding Codec}" Width="110" />
+                            <DataGridTextColumn Header="Resolution" Binding="{Binding Resolution}" SortMemberPath="Height" Width="90" />
+                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" SortMemberPath="DurationSeconds" Width="75" />
+                            <DataGridTextColumn Header="HDR" Binding="{Binding Hdr}" Width="80" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="170" />
+                            <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="80" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Storage">
+                <Grid Margin="8">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="230" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Original library" Style="{StaticResource Label}" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LibraryText}" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="1" Text="Estimated AV1 library" Style="{StaticResource Label}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EstimateText}" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="2" Text="Estimated savings" Style="{StaticResource Label}" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SavingsText}" FontWeight="SemiBold" Foreground="{StaticResource SuccessText}" />
+                    <TextBlock Grid.Row="3" Text="Current free disk space" Style="{StaticResource Label}" Margin="0,12,10,2" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FreeSpaceText}" Margin="0,12,0,2" />
+                    <TextBlock Grid.Row="4" Text="Required space (next file)" Style="{StaticResource Label}" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding NextFileSpaceText}" />
+                    <TextBlock Grid.Row="5" Text="Free after current conversion" Style="{StaticResource Label}" />
+                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding AfterCurrentText}" />
+                </Grid>
+            </TabItem>
+            <TabItem Header="System &amp; tools">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="8">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="DEPENDENCIES" Style="{StaticResource CardTitle}" />
+                            <ItemsControl ItemsSource="{Binding DependencyRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,1">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Name}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Status}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" FontWeight="SemiBold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{StaticResource DangerText}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Ok}" Value="True"><Setter Property="Foreground" Value="{StaticResource SuccessText}" /></DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="Install / Configure…" Command="{Binding OpenSettingsCommand}" Margin="0,0,6,0" ToolTip="Settings › Tools: download or locate FFmpeg, FFprobe and ab-av1" />
+                                <Button Content="Re-detect" Command="{Binding RedetectToolsCommand}" Margin="0,0,6,0" />
+                                <Button Content="System check…" Command="{Binding ShowFirstRunCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                            <TextBlock Text="THIS PC" Style="{StaticResource CardTitle}" />
+                            <TextBlock Text="{Binding SystemInfo.Summary}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                            <TextBlock Text="{Binding HardwareRecommendation}" TextWrapping="Wrap" Foreground="{StaticResource AccentText}" Margin="0,0,0,6" />
+                            <TextBlock Text="{Binding CpuSummary}" TextWrapping="Wrap" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <!-- ===================== Status bar ===================== -->
+        <Border Grid.Row="5" Padding="10,4" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding ToolsSummary}" Foreground="{StaticResource SubtleText}" />
+                <Border DockPanel.Dock="Left" CornerRadius="4" Padding="6,0" Margin="0,0,10,0" BorderThickness="1" BorderBrush="{StaticResource SelectedCardBorder}"
+                        ToolTip="Mode used for files you add now">
+                    <TextBlock FontSize="11" FontWeight="SemiBold">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="AB-AV1 · AUTOMATIC QUALITY" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsManualMode}" Value="True"><Setter Property="Text" Value="MANUAL AV1 · FULL CONTROL" /></DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Border>
+                <TextBlock DockPanel.Dock="Left" Text="{Binding RunStateText}" FontWeight="SemiBold" Margin="0,0,16,0" />
+                <TextBlock Text="{Binding LastLogLine}" Foreground="{StaticResource SubtleText}" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

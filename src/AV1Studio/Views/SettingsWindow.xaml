@@ -1,0 +1,621 @@
+<Window x:Class="AV1Studio.Views.SettingsWindow"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:AV1Studio.Views"
+             xmlns:m="clr-namespace:AV1Studio.Models"
+             Title="Settings — AV1 Studio" Icon="pack://application:,,,/AV1Studio;component/Assets/av1studio.ico" Width="1080" Height="780" MinWidth="820" MinHeight="520"
+             WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <v:EnumEqualsConverter x:Key="Eq" />
+        <Style TargetType="ScrollViewer">
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="Padding" Value="16,0,12,0" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="16,12,16,12">
+        <!-- save bar -->
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Cancel" Click="OnDiscard" Margin="0,0,8,0" Width="110" IsCancel="True" />
+                    <Button Content="Save" Click="OnSave" Width="110" Style="{StaticResource PrimaryButtonStyle}" IsDefault="True" />
+                </StackPanel>
+                <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock x:Name="HintText" Text="Nothing changes until you press Save. Files already in the queue keep the settings they were added with."
+                           Style="{StaticResource Hint}" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+
+        <DockPanel>
+            <StackPanel DockPanel.Dock="Left" Width="210" Margin="0,0,8,0">
+                <TextBox x:Name="SearchBox" TextChanged="OnSearch" Margin="0,0,0,8" ToolTip="Search settings (e.g. VMAF, subtitles, disk, GPU, theme)" />
+                <TextBlock Text="Type to filter categories" Style="{StaticResource Hint}" Margin="4,-6,0,8" />
+            </StackPanel>
+
+            <TabControl x:Name="Tabs" TabStripPlacement="Left" Grid.IsSharedSizeScope="True">
+                <!-- ================= GENERAL ================= -->
+                <TabItem Header="General" Tag="general mode library scan scanning extensions recursive folders skip av1 size startup">
+                    <ScrollViewer>
+                        <StackPanel x:Name="GeneralRoot">
+                            <TextBlock Text="General" Style="{StaticResource SectionTitle}" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Library scanning" Style="{StaticResource FieldLabel}" />
+                                <CheckBox Content="Scan sub-folders recursively" IsChecked="{Binding Recursive}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="File extensions" Style="{StaticResource FieldLabel}" />
+                                <TextBox Text="{Binding Extensions}" ToolTip="Comma separated list of extensions picked up when scanning folders." />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Already AV1" Style="{StaticResource FieldLabel}" />
+                                <CheckBox Content="Skip files that are already AV1" IsChecked="{Binding SkipAv1Sources}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Skip files smaller than (MB)" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding MinFileSizeMB, Converter={StaticResource NullableNum}}" />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,12"
+                                       Text="The encoding mode (AB-AV1 or Manual AV1) is chosen in the main window and remembered. Files you add, drop or scan use the currently selected mode and settings; right-click queued files to switch mode or apply the current settings to them." />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="First-run system check" Style="{StaticResource FieldLabel}" />
+                                <Button Content="Run system check…" Click="OnFirstRun" HorizontalAlignment="Left" />
+                            </DockPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= APPEARANCE ================= -->
+                <TabItem Header="Appearance" Tag="appearance theme dark light animations look">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="Appearance" Style="{StaticResource SectionTitle}" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Theme" Style="{StaticResource FieldLabel}" />
+                                <RadioButton Content="Dark" GroupName="theme" Margin="0,0,16,0" IsChecked="{Binding Theme, Converter={StaticResource Eq}, ConverterParameter=Dark}" />
+                                <RadioButton Content="Light" GroupName="theme" IsChecked="{Binding Theme, Converter={StaticResource Eq}, ConverterParameter=Light}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Animations" Style="{StaticResource FieldLabel}" />
+                                <CheckBox Content="Subtle animations" IsChecked="{Binding Animations}" />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Text="The interface scales with Windows display scaling (per-monitor high-DPI aware)." />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= PERFORMANCE / CPU USAGE ================= -->
+                <TabItem Header="Performance" Tag="performance cpu usage threads cores priority affinity concurrent jobs parallel below normal idle maximum balanced low custom">
+                    <ScrollViewer>
+                        <StackPanel x:Name="PerfRoot" ComboBox.SelectionChanged="OnCpuChanged" TextBoxBase.TextChanged="OnCpuChanged">
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,8" FontSize="12.5" Text="{x:Static v:Tips.CpuUsage}" />
+                            <TextBlock x:Name="CpuDetected" Style="{StaticResource Hint}" Margin="0,0,0,12" />
+
+                            <Border Style="{StaticResource Card}" DataContext="{Binding SearchCpu}">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <v:HelpTip DockPanel.Dock="Right" Text="{x:Static v:Tips.CpuSearchVsEncode}" />
+                                        <TextBlock Text="AB-AV1 CRF SEARCH (analysis)" Style="{StaticResource CardTitle}" Margin="0" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <TextBlock Text="Mode" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox Width="200" HorizontalAlignment="Left" ItemsSource="{v:EnumValues Type={x:Type m:CpuUsageMode}}" SelectedItem="{Binding Mode}" ToolTip="{x:Static v:Tips.CpuUsage}" />
+                                        <v:HelpTip Text="{x:Static v:Tips.CpuUsage}" HorizontalAlignment="Left" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding Mode, Converter={StaticResource Eq}, ConverterParameter=Custom}">
+                                        <TextBlock Text="Logical processors (0 = all)" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding Threads}" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding Mode, Converter={StaticResource Eq}, ConverterParameter=Custom}">
+                                        <TextBlock Text="Priority" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox Width="200" HorizontalAlignment="Left" ItemsSource="{v:EnumValues Type={x:Type m:ProcessPriority}}" SelectedItem="{Binding Priority}" ToolTip="{x:Static v:Tips.Priority}" />
+                                        <v:HelpTip Text="{x:Static v:Tips.Priority}" HorizontalAlignment="Left" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding Mode, Converter={StaticResource Eq}, ConverterParameter=Custom}">
+                                        <TextBlock Text="Specific processors (optional)" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Width="160" HorizontalAlignment="Left" Text="{Binding Affinity}" ToolTip="{x:Static v:Tips.Affinity}" />
+                                        <v:HelpTip Text="{x:Static v:Tips.Affinity}" HorizontalAlignment="Left" />
+                                    </DockPanel>
+                                    <TextBlock x:Name="SearchPlanText" Style="{StaticResource Hint}" Foreground="{StaticResource AccentText}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" DataContext="{Binding EncodeCpu}">
+                                <StackPanel>
+                                    <TextBlock Text="FINAL ENCODE (both modes, previews, verification)" Style="{StaticResource CardTitle}" />
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <TextBlock Text="Mode" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox Width="200" HorizontalAlignment="Left" ItemsSource="{v:EnumValues Type={x:Type m:CpuUsageMode}}" SelectedItem="{Binding Mode}" ToolTip="{x:Static v:Tips.CpuUsage}" />
+                                        <v:HelpTip Text="{x:Static v:Tips.CpuUsage}" HorizontalAlignment="Left" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding Mode, Converter={StaticResource Eq}, ConverterParameter=Custom}">
+                                        <TextBlock Text="Logical processors (0 = all)" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding Threads}" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding Mode, Converter={StaticResource Eq}, ConverterParameter=Custom}">
+                                        <TextBlock Text="Priority" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox Width="200" HorizontalAlignment="Left" ItemsSource="{v:EnumValues Type={x:Type m:ProcessPriority}}" SelectedItem="{Binding Priority}" ToolTip="{x:Static v:Tips.Priority}" />
+                                        <v:HelpTip Text="{x:Static v:Tips.Priority}" HorizontalAlignment="Left" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding Mode, Converter={StaticResource Eq}, ConverterParameter=Custom}">
+                                        <TextBlock Text="Specific processors (optional)" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Width="160" HorizontalAlignment="Left" Text="{Binding Affinity}" ToolTip="{x:Static v:Tips.Affinity}" />
+                                        <v:HelpTip Text="{x:Static v:Tips.Affinity}" HorizontalAlignment="Left" />
+                                    </DockPanel>
+                                    <TextBlock x:Name="EncodePlanText" Style="{StaticResource Hint}" Foreground="{StaticResource AccentText}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,14"
+                                       Text="These limits are applied by Windows to the encoder processes (priority and processor affinity through a job object). Hardware (GPU) encoders use little CPU, so these settings mostly matter for SVT-AV1, libaom-av1 and VMAF measurement. Realtime priority is never used." />
+
+                            <TextBlock Text="Parallel work" Style="{StaticResource SectionTitle}" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Concurrent jobs" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding ConcurrentJobs}" ToolTip="{x:Static v:Tips.Concurrency}" />
+                                <v:HelpTip Text="{x:Static v:Tips.Concurrency}" HorizontalAlignment="Left" />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}"
+                                       Text="Encoders run as separate processes; the application only orchestrates them, reads progress once per second and never does video processing itself." />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= CPU & HARDWARE ================= -->
+                <TabItem Header="CPU &amp; Hardware" Tag="cpu hardware gpu nvenc qsv amd intel nvidia decode encode software comparison detection pixel formats">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="Software (CPU) vs hardware encoding" Style="{StaticResource SectionTitle}" />
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="SOFTWARE / CPU ENCODING — e.g. SVT-AV1" Style="{StaticResource CardTitle}" />
+                                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                                               Text="Software encoding runs the AV1 encoder on the CPU. It generally provides extensive control and can offer strong compression efficiency, but encoding can take significantly longer and use substantial CPU resources." />
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource Hint}">
+                                        • CPU usage: typically high — the encoder uses most or all cores.<LineBreak />
+                                        • Encoding speed: usually slower; strongly depends on the preset, resolution and CPU.<LineBreak />
+                                        • Compression efficiency: often strong, especially at slower presets.<LineBreak />
+                                        • Flexibility: many parameters (presets 0–13, film grain, tiles, tune…).<LineBreak />
+                                        • Power &amp; heat: sustained full CPU load raises power draw, temperatures and fan noise.
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="HARDWARE ENCODING — e.g. NVIDIA NVENC AV1, Intel QSV AV1, AMD AV1" Style="{StaticResource CardTitle}" />
+                                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+                                               Text="Hardware encoding uses a dedicated media encoding engine available on supported GPUs or integrated graphics. It is generally much faster and can dramatically reduce CPU usage, but the available controls and compression efficiency depend on the specific hardware generation and encoder implementation." />
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource Hint}">
+                                        • Much faster encoding, on a dedicated media engine separate from the GPU's 3D cores.<LineBreak />
+                                        • Low CPU usage — the PC stays usable; well suited to real-time encoding.<LineBreak />
+                                        • Features are hardware-dependent (rate control, presets, 10-bit, HDR metadata support vary).<LineBreak />
+                                        • Compression efficiency can differ from software encoders; it depends on the encoder generation and settings.
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}"
+                                    ToolTip="Hardware encoding is not automatically lower quality. The result depends on the encoder, hardware generation, rate control, preset and source content.">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource Icon}" Text="&#xE946;" Foreground="{StaticResource AccentText}"
+                                                   ToolTip="Hardware encoding is not automatically lower quality. The result depends on the encoder, hardware generation, rate control, preset and source content." />
+                                        <TextBlock Text="COMPARISON" Style="{StaticResource CardTitle}" Margin="0" />
+                                    </DockPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="190" /><ColumnDefinition /><ColumnDefinition />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Column="1" Text="CPU / Software" FontWeight="SemiBold" Margin="0,0,0,6" />
+                                        <TextBlock Grid.Column="2" Text="Hardware" FontWeight="SemiBold" Margin="0,0,0,6" />
+                                        <TextBlock Grid.Row="1" Text="Processing" Style="{StaticResource Label}" /><TextBlock Grid.Row="1" Grid.Column="1" Text="CPU" /><TextBlock Grid.Row="1" Grid.Column="2" Text="Dedicated media engine" />
+                                        <TextBlock Grid.Row="2" Text="Encoding speed" Style="{StaticResource Label}" /><TextBlock Grid.Row="2" Grid.Column="1" Text="Usually slower" /><TextBlock Grid.Row="2" Grid.Column="2" Text="Usually much faster" />
+                                        <TextBlock Grid.Row="3" Text="CPU usage" Style="{StaticResource Label}" /><TextBlock Grid.Row="3" Grid.Column="1" Text="High" /><TextBlock Grid.Row="3" Grid.Column="2" Text="Low / moderate" />
+                                        <TextBlock Grid.Row="4" Text="Compression efficiency" Style="{StaticResource Label}" /><TextBlock Grid.Row="4" Grid.Column="1" Text="Encoder-dependent" /><TextBlock Grid.Row="4" Grid.Column="2" Text="Hardware-generation dependent" />
+                                        <TextBlock Grid.Row="5" Text="Controls" Style="{StaticResource Label}" /><TextBlock Grid.Row="5" Grid.Column="1" Text="Often extensive" /><TextBlock Grid.Row="5" Grid.Column="2" Text="Hardware-dependent" />
+                                        <TextBlock Grid.Row="6" Text="Real-time encoding" Style="{StaticResource Label}" /><TextBlock Grid.Row="6" Grid.Column="1" Text="More difficult" /><TextBlock Grid.Row="6" Grid.Column="2" Text="Often easier" />
+                                        <TextBlock Grid.Row="7" Text="Power / heat" Style="{StaticResource Label}" /><TextBlock Grid.Row="7" Grid.Column="1" Text="Higher CPU load" /><TextBlock Grid.Row="7" Grid.Column="2" Text="Often lower CPU load" />
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0"
+                                               Text="Final quality depends on the encoder implementation and generation, the preset, the CRF / quality value (or bitrate), the source content and the encoder settings — not simply on whether the CPU or a GPU does the work. Use Preview to compare on your own files." />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="Detected on this PC" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="{Binding DataContext.SystemInfo.Summary, RelativeSource={RelativeSource AncestorType=Window}}" TextWrapping="Wrap" Margin="0,-4,0,10" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,-6,0,10"
+                                       Text="Based on real tests run with your FFmpeg build (a test AV1 encode per encoder and a hardware decode of a test AV1 clip), not on GPU model names. Hardware DECODING and hardware ENCODING are reported separately." />
+                            <ItemsControl ItemsSource="{Binding DataContext.Capabilities, RelativeSource={RelativeSource AncestorType=Window}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource Card}">
+                                            <StackPanel>
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Kind}" Foreground="{StaticResource SubtleText}" />
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" />
+                                                </DockPanel>
+                                                <Grid Margin="0,8,0,0">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="140" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                                    <TextBlock Text="AV1 Decode" Style="{StaticResource Label}" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding DecodeText}" FontWeight="SemiBold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource DangerText}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding DecodeOk}" Value="True"><Setter Property="Foreground" Value="{StaticResource SuccessText}" /></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <TextBlock Grid.Row="1" Text="AV1 Encode" Style="{StaticResource Label}" />
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EncodeText}" FontWeight="SemiBold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource DangerText}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding EncodeOk}" Value="True"><Setter Property="Foreground" Value="{StaticResource SuccessText}" /></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Note}" Style="{StaticResource Hint}" Margin="0,4,0,0" />
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="RECOMMENDED AV1 ENCODER" Style="{StaticResource CardTitle}" />
+                                    <TextBlock Text="{Binding DataContext.HardwareRecommendation, RelativeSource={RelativeSource AncestorType=Window}}" TextWrapping="Wrap" />
+                                    <TextBlock Text="AV1 ENCODERS" Style="{StaticResource CardTitle}" Margin="0,12,0,6" />
+                                    <ItemsControl ItemsSource="{Binding DataContext.Tools.EncoderAvailability, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,0,0,8">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,2">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="26" /><ColumnDefinition Width="230" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                    <TextBlock FontWeight="Bold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="✕" /><Setter Property="Foreground" Value="{StaticResource DangerText}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Available}" Value="True"><Setter Property="Text" Value="✓" /><Setter Property="Foreground" Value="{StaticResource SuccessText}" /></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Reason}" TextWrapping="Wrap" Foreground="{StaticResource SubtleText}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="AVAILABLE ENCODERS / DECODERS" Style="{StaticResource CardTitle}" Margin="0,12,0,6" />
+                                    <TextBlock TextWrapping="Wrap"><Run Text="Encoders: " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding DataContext.EncoderSummary, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}" /></TextBlock>
+                                    <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"><Run Text="AV1 decoders: " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding DataContext.DecoderSummary, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}" /></TextBlock>
+                                    <TextBlock Text="SUPPORTED PIXEL FORMATS" Style="{StaticResource CardTitle}" Margin="0,12,0,6" />
+                                    <TextBlock Text="{Binding DataContext.PixelFormatSummary, RelativeSource={RelativeSource AncestorType=Window}}" TextWrapping="Wrap"
+                                               FontFamily="{StaticResource MonoFont}" FontSize="11.5" />
+                                    <Button Content="Re-run detection" Command="{Binding DataContext.RedetectToolsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            HorizontalAlignment="Left" Margin="0,10,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= OUTPUT & FOLDERS ================= -->
+                <TabItem Header="Output &amp; folders" Tag="storage output destination naming suffix template collision overwrite reuse ask mirror folder tree structure copy hash disk space free reserve temp folder">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="Output location (both modes)" Style="{StaticResource SectionTitle}" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Destination folder" Style="{StaticResource FieldLabel}" />
+                                <TextBox Text="{Binding DestinationFolder}" ToolTip="Empty = write next to each source file" />
+                            </DockPanel>
+                            <CheckBox Content="Keep source sub-folders inside the destination" IsChecked="{Binding PreserveFolderStructure}" Margin="190,0,0,6" />
+                            <DockPanel Margin="190,0,0,4">
+                                <CheckBox IsChecked="{Binding MirrorFolderTree}"><TextBlock Text="Added folders: recreate the complete folder tree in the destination" TextWrapping="Wrap" /></CheckBox>
+                                <v:HelpTip Text="{x:Static v:Tips.Mirror}" HorizontalAlignment="Left" />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="214,0,0,6"
+                                       Text="Every sub-folder (including empty ones) is created; videos are encoded; all other files (subtitles, images, NFO, documents…) and videos that are not re-encoded are copied unchanged and verified. Copied files are never deleted from the source." />
+                            <CheckBox IsChecked="{Binding VerifyCopiesWithHash}" Margin="190,0,0,14"><TextBlock Text="Verify copied files with a SHA-256 hash (slower; the size is always checked)" TextWrapping="Wrap" /></CheckBox>
+
+                            <TextBlock Text="File names" Style="{StaticResource SectionTitle}" />
+                            <RadioButton GroupName="name"  IsChecked="{Binding Naming, Converter={StaticResource Eq}, ConverterParameter=Auto}" Margin="0,0,0,4"><TextBlock Text="Automatic (recommended): original name in a destination folder, suffix when writing next to the source" TextWrapping="Wrap" /></RadioButton>
+                            <RadioButton GroupName="name" Content="Always add a suffix (Movie.mkv → Movie_AV1.mkv)" IsChecked="{Binding Naming, Converter={StaticResource Eq}, ConverterParameter=Suffix}" Margin="0,0,0,4" />
+                            <DockPanel Margin="24,0,0,6">
+                                <TextBlock Text="Suffix" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBox Text="{Binding Suffix}" Width="160" HorizontalAlignment="Left" />
+                            </DockPanel>
+                            <RadioButton GroupName="name" Content="Same filename" IsChecked="{Binding Naming, Converter={StaticResource Eq}, ConverterParameter=SameName}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="24,0,0,6" Text="In the source folder this replaces the source — allowed only with source deletion, and only after verification." />
+                            <RadioButton GroupName="name" Content="Custom template" IsChecked="{Binding Naming, Converter={StaticResource Eq}, ConverterParameter=Template}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding NameTemplate}" Width="300" HorizontalAlignment="Left" Margin="24,0,0,4" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="24,0,0,14" Text="Tokens: {name} {crf} {vmaf} {preset} {date}" />
+
+                            <DockPanel>
+                                <v:HelpTip DockPanel.Dock="Right" Text="{x:Static v:Tips.Collision}" HorizontalAlignment="Left" />
+                                <TextBlock Text="If the output file already exists" Style="{StaticResource SectionTitle}" />
+                            </DockPanel>
+                            <RadioButton GroupName="coll"  IsChecked="{Binding Collision, Converter={StaticResource Eq}, ConverterParameter=ReuseIfValid}" Margin="0,0,0,4"><TextBlock Text="Reuse it if it is a valid, complete AV1 file, otherwise encode (default — makes interrupted jobs resumable)" TextWrapping="Wrap" /></RadioButton>
+                            <RadioButton GroupName="coll" Content="Ask me before starting" IsChecked="{Binding Collision, Converter={StaticResource Eq}, ConverterParameter=Ask}" Margin="0,0,0,4" />
+                            <RadioButton GroupName="coll" Content="Skip the file" IsChecked="{Binding Collision, Converter={StaticResource Eq}, ConverterParameter=Skip}" Margin="0,0,0,4" />
+                            <RadioButton GroupName="coll" Content="Add a number: Movie (2).mkv" IsChecked="{Binding Collision, Converter={StaticResource Eq}, ConverterParameter=AppendNumber}" Margin="0,0,0,4" />
+                            <RadioButton GroupName="coll" Content="Replace existing output files (never the source)" Checked="OnOverwriteChecked"
+                                         IsChecked="{Binding Collision, Converter={StaticResource Eq}, ConverterParameter=Overwrite}" Margin="0,0,0,14" />
+
+                            <TextBlock Text="Disk space" Style="{StaticResource SectionTitle}" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Keep at least (GB free)" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="70" HorizontalAlignment="Left" Text="{Binding MinFreeSpaceGB, Converter={StaticResource NullableNum}}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Safety factor on estimate" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="70" HorizontalAlignment="Left" Text="{Binding SpaceSafetyFactor, Converter={StaticResource NullableNum}}"
+                                         ToolTip="Required free space = estimated output × factor + reserve. Without an estimate the source size is used." />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="When a file does not fit" Style="{StaticResource FieldLabel}" />
+                                <ComboBox Width="200" HorizontalAlignment="Left" ItemsSource="{v:EnumValues Type={x:Type m:SpaceAction}}" SelectedItem="{Binding InsufficientSpace}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Temporary folder (samples)" Style="{StaticResource FieldLabel}" />
+                                <TextBox Text="{Binding TempFolder}" ToolTip="AB-AV1 CRF-search samples and previews. Empty = the temp folder inside the data folder. Prefer a fast SSD." />
+                            </DockPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= SAFETY ================= -->
+                <TabItem Header="Safety" Tag="safety verification verify decode delete source recycle bin duration fail fast tracks">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="Verification (both modes)" Style="{StaticResource SectionTitle}" />
+                            <CheckBox Content="Full decode verification" IsChecked="{Binding AbAv1Verify}" Margin="0,0,0,4"
+                                      ToolTip="The whole output is decoded before it is accepted (ab-av1 --verify in AB-AV1 mode; an FFmpeg decode in Manual mode). Recommended when deleting sources." />
+                            <CheckBox Content="Stop at the first FFmpeg error (fail fast)" IsChecked="{Binding FailFast}" Margin="0,0,0,4"
+                                      ToolTip="Catches damaged sources that could otherwise produce a silently broken output." />
+                            <CheckBox Content="Check that audio / subtitle track counts match" IsChecked="{Binding VerifyStreamCounts}" Margin="0,0,0,8" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Duration tolerance (s)" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="70" HorizontalAlignment="Left" Text="{Binding DurationToleranceSeconds, Converter={StaticResource NullableNum}}" />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,16"
+                                       Text="Always checked: exit code 0 → output exists → size &gt; 0 → FFprobe reads it → AV1 video stream → duration ≈ source → source unchanged. Outputs are written as temporary *.av1studio.partial files and renamed only after every check passes." />
+                            <TextBlock Text="Source deletion" Style="{StaticResource SectionTitle}" />
+                            <DockPanel Margin="0,0,0,6">
+                                <CheckBox Content="Delete source file after successful, verified encoding" IsChecked="{Binding DeleteSourceAfterSuccess}" Foreground="#FFB4A2" />
+                                <v:HelpTip Text="{x:Static v:Tips.DeleteSource}" HorizontalAlignment="Left" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Deletion method" Style="{StaticResource FieldLabel}" />
+                                <ComboBox Width="200" HorizontalAlignment="Left" ItemsSource="{v:EnumValues Type={x:Type m:DeleteMode}}" SelectedItem="{Binding DeleteMode}" />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Text="Recycle Bin is safer but does NOT free disk space until it is emptied." />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= FFMPEG ================= -->
+                <TabItem Header="Tools" Tag="tools dependencies ffmpeg ffprobe ab-av1 path download install configure detect version">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="Tools" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,12"
+                                       Text="Leave empty to auto-detect (app folder, the tools folder in the data folder, PATH, winget, scoop, chocolatey). FFmpeg must include libsvtav1 (and libvmaf for AB-AV1)." />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="ab-av1.exe" Style="{StaticResource FieldLabel}" Width="110" />
+                                <Button DockPanel.Dock="Right" Content="Browse…" Margin="6,0,0,0" Click="OnBrowseTool" Tag="ab-av1" />
+                                <TextBox x:Name="AbAv1Box" Text="{Binding AbAv1Path}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="ffmpeg.exe" Style="{StaticResource FieldLabel}" Width="110" />
+                                <Button DockPanel.Dock="Right" Content="Browse…" Margin="6,0,0,0" Click="OnBrowseTool" Tag="ffmpeg" />
+                                <TextBox x:Name="FfmpegBox" Text="{Binding FfmpegPath}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="ffprobe.exe" Style="{StaticResource FieldLabel}" Width="110" />
+                                <Button DockPanel.Dock="Right" Content="Browse…" Margin="6,0,0,0" Click="OnBrowseTool" Tag="ffprobe" />
+                                <TextBox x:Name="FfprobeBox" Text="{Binding FfprobePath}" />
+                            </DockPanel>
+                            <Border Style="{StaticResource Card}" Margin="0,8,0,10">
+                                <StackPanel>
+                                    <TextBlock Text="DETECTED" Style="{StaticResource CardTitle}" />
+                                    <TextBlock x:Name="ToolsStatusText" TextWrapping="Wrap" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="Download tools (optional)" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                                       Text="Downloads from the official sources into the tools folder inside the data folder: ab-av1.exe (MIT) from github.com/alexheretic/ab-av1, and a GPL FFmpeg build (libsvtav1, libvmaf, NVENC/QSV/AMF, zscale) from github.com/BtbN/FFmpeg-Builds. Nothing is bundled; you are responsible for complying with those licenses." />
+                            <WrapPanel Margin="0,0,0,6">
+                                <Button x:Name="DlAbAv1" Content="Download ab-av1" Click="OnDownloadAbAv1" Margin="0,0,8,6" />
+                                <Button x:Name="DlFfmpeg" Content="Download FFmpeg + FFprobe (~150 MB)" Click="OnDownloadFfmpeg" Margin="0,0,8,6" />
+                                <Button Content="Re-detect" Click="OnRedetect" Margin="0,0,8,6" />
+                            </WrapPanel>
+                            <TextBlock x:Name="DownloadText" TextWrapping="Wrap" Foreground="{StaticResource AccentText}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= AB-AV1 ================= -->
+                <TabItem Header="AB-AV1" Tag="ab-av1 abav1 vmaf crf search sampling samples thorough encoder svt preset gpu nvenc keyint scd filters audio subtitles container automatic quality">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="AB-AV1 · automatic quality" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,-6,0,12"
+                                       Text="Target quality → automatic CRF → encode. These options apply ONLY to files queued in AB-AV1 mode. Empty fields = ab-av1's own defaults." />
+
+                            <TextBlock Text="Target &amp; CRF search" FontWeight="SemiBold" Margin="0,0,0,8" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Target VMAF (--min-vmaf)" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding TargetVmaf, Converter={StaticResource NullableNum}}" ToolTip="{x:Static v:Tips.Vmaf}" />
+                                <v:HelpTip Text="{x:Static v:Tips.Vmaf}" HorizontalAlignment="Left" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Max encoded size %" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding MaxEncodedPercent, Converter={StaticResource NullableNum}}"
+                                         ToolTip="--max-encoded-percent (ab-av1 default 80): if no CRF reaches the target below this size, the file is skipped." />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="CRF range (min – max)" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="60" Text="{Binding MinCrf, Converter={StaticResource NullableNum}}" /><TextBlock Text=" – " VerticalAlignment="Center" />
+                                <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding MaxCrf, Converter={StaticResource NullableNum}}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="CRF increment" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding CrfIncrement, Converter={StaticResource NullableNum}}" />
+                            </DockPanel>
+                            <CheckBox Content="Thorough search (--thorough)" IsChecked="{Binding Thorough}" Margin="190,0,0,12" ToolTip="{x:Static v:Tips.CrfSearch}" />
+
+                            <TextBlock Text="Sampling" FontWeight="SemiBold" Margin="0,4,0,8" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Samples / every / min" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="50" Text="{Binding Samples, Converter={StaticResource NullableNum}}" ToolTip="--samples" />
+                                <TextBox Width="60" Margin="6,0" Text="{Binding SampleEvery}" ToolTip="--sample-every, e.g. 12m" />
+                                <TextBox Width="50" HorizontalAlignment="Left" Text="{Binding MinSamples, Converter={StaticResource NullableNum}}" ToolTip="--min-samples" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Sample duration" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding SampleDuration}" ToolTip="--sample-duration, e.g. 20s" />
+                            </DockPanel>
+                            <CheckBox Content="ab-av1 sample cache (--cache)" IsChecked="{Binding AbAv1SampleCache}" Margin="190,0,0,8" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Extra VMAF args / scale" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="220" Text="{Binding VmafArgs}" ToolTip="--vmaf args, e.g. n_subsample=2" />
+                                <TextBox Width="110" Margin="6,0,0,0" HorizontalAlignment="Left" Text="{Binding VmafScale}" ToolTip="--vmaf-scale (auto, none or WxH)" />
+                            </DockPanel>
+
+                            <TextBlock Text="Encoder" FontWeight="SemiBold" Margin="0,8,0,8" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="SVT-AV1 preset" Style="{StaticResource FieldLabel}" />
+                                <ComboBox x:Name="PresetCombo" Width="320" HorizontalAlignment="Left" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Preset}" ToolTip="{x:Static v:Tips.Preset}" />
+                                <v:HelpTip Text="{x:Static v:Tips.Preset}" HorizontalAlignment="Left" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Keyframes / scene detection" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="70" Text="{Binding Keyint}" ToolTip="--keyint (240 or 10s)" />
+                                <ComboBox Width="120" Margin="6,0,0,0" HorizontalAlignment="Left" ItemsSource="{v:EnumValues Type={x:Type m:ScdMode}}" SelectedItem="{Binding Scd}" ToolTip="--scd" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Encoder threads (lp)" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding EncoderThreads}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Custom SVT parameters (--svt)" Style="{StaticResource FieldLabel}" />
+                                <v:HelpTip DockPanel.Dock="Right" Text="{x:Static v:Tips.SvtParams}" />
+                                <TextBox Text="{Binding SvtParams}" FontFamily="{StaticResource MonoFont}" ToolTip="e.g. film-grain=8 tune=0" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="GPU encoder (-e)" Style="{StaticResource FieldLabel}" />
+                                <CheckBox x:Name="HwCheck" Content="Use GPU" ToolTip="{x:Static v:Tips.Hardware}" ToolTipService.ShowOnDisabled="True" IsChecked="{Binding HardwareEncoding}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <ComboBox x:Name="HwEncoderCombo" Width="260" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding HardwareEncoder}" SelectionChanged="OnHwEncoderChanged" />
+                                <ComboBox x:Name="HwPresetCombo" Width="160" Margin="6,0,0,0" HorizontalAlignment="Left" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding HardwarePreset}" />
+                            </DockPanel>
+                            <TextBlock x:Name="HwStatusText" Style="{StaticResource Hint}" Margin="190,-6,0,10" />
+
+                            <TextBlock Text="Video (applied to VMAF reference and encode)" FontWeight="SemiBold" Margin="0,4,0,8" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Pixel format" Style="{StaticResource FieldLabel}" />
+                                <ComboBox x:Name="PixCombo" Width="320" HorizontalAlignment="Left" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding PixelFormat}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Resolution" Style="{StaticResource FieldLabel}" />
+                                <ComboBox x:Name="ResCombo" Width="320" HorizontalAlignment="Left" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding MaxHeight}" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Frame rate / crop" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="90" Text="{Binding Fps}" ToolTip="Empty = source" />
+                                <TextBox Width="160" Margin="6,0,0,0" HorizontalAlignment="Left" Text="{Binding Crop}" ToolTip="w:h:x:y, empty = none" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Custom video filters" Style="{StaticResource FieldLabel}" />
+                                <TextBox Text="{Binding CustomVideoFilter}" FontFamily="{StaticResource MonoFont}" />
+                            </DockPanel>
+
+                            <TextBlock Text="Audio" FontWeight="SemiBold" Margin="0,4,0,8" />
+                            <WrapPanel Margin="0,0,0,8">
+                                <RadioButton GroupName="aa" Content="Copy" Margin="0,0,16,0" ToolTip="{x:Static v:Tips.AudioCopy}" IsChecked="{Binding AudioMode, Converter={StaticResource Eq}, ConverterParameter=Copy}" />
+                                <RadioButton GroupName="aa" Content="Transcode" Margin="0,0,16,0" IsChecked="{Binding AudioMode, Converter={StaticResource Eq}, ConverterParameter=Transcode}" />
+                                <RadioButton GroupName="aa" Content="Remove" IsChecked="{Binding AudioMode, Converter={StaticResource Eq}, ConverterParameter=Remove}" />
+                            </WrapPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Codec / bitrate (transcode)" Style="{StaticResource FieldLabel}" />
+                                <ComboBox Width="130" IsEditable="True" Text="{Binding AudioCodec}">
+                                    <ComboBoxItem Content="libopus" /><ComboBoxItem Content="aac" /><ComboBoxItem Content="ac3" /><ComboBoxItem Content="eac3" /><ComboBoxItem Content="flac" />
+                                </ComboBox>
+                                <TextBox Width="80" Margin="6,0,0,0" Text="{Binding AudioBitrate}" />
+                                <CheckBox Content="Downmix to stereo" IsChecked="{Binding DownmixToStereo}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Keep audio languages" Style="{StaticResource FieldLabel}" />
+                                <TextBox Text="{Binding AudioLanguages}" ToolTip="e.g. eng,fre,und — empty keeps all" />
+                            </DockPanel>
+
+                            <TextBlock Text="Subtitles, metadata &amp; container" FontWeight="SemiBold" Margin="0,4,0,8" />
+                            <WrapPanel Margin="0,0,0,8">
+                                <RadioButton GroupName="as" Content="Copy all" Margin="0,0,16,0" IsChecked="{Binding SubtitleMode, Converter={StaticResource Eq}, ConverterParameter=CopyAll}" />
+                                <RadioButton GroupName="as" Content="Keep languages:" Margin="0,0,6,0" IsChecked="{Binding SubtitleMode, Converter={StaticResource Eq}, ConverterParameter=Languages}" />
+                                <TextBox Width="120" Margin="0,0,16,0" Text="{Binding SubtitleLanguages}" />
+                                <RadioButton GroupName="as" Content="Remove" IsChecked="{Binding SubtitleMode, Converter={StaticResource Eq}, ConverterParameter=Remove}" />
+                            </WrapPanel>
+                            <WrapPanel Margin="0,0,0,8">
+                                <CheckBox Content="Chapters" IsChecked="{Binding KeepChapters}" Margin="0,0,14,0" />
+                                <CheckBox Content="Global metadata" IsChecked="{Binding KeepGlobalMetadata}" Margin="0,0,14,0" />
+                                <CheckBox Content="Attachments (MKV)" IsChecked="{Binding KeepAttachments}" />
+                            </WrapPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Container" Style="{StaticResource FieldLabel}" />
+                                <ComboBox Width="200" HorizontalAlignment="Left" ItemsSource="{v:EnumValues Type={x:Type m:ContainerFormat}}" SelectedItem="{Binding Container}" />
+                            </DockPanel>
+
+                            <TextBlock Text="Advanced (ab-av1 --enc / --enc-input)" FontWeight="SemiBold" Margin="0,4,0,8" />
+                            <TextBox Text="{Binding ExtraEncArgs}" AcceptsReturn="True" Height="70" FontFamily="{StaticResource MonoFont}" Margin="0,0,0,6"
+                                     ToolTip="FFmpeg output options, one name=value per line (also used for CRF-search samples)" />
+                            <TextBox Text="{Binding ExtraEncInputArgs}" AcceptsReturn="True" Height="50" FontFamily="{StaticResource MonoFont}"
+                                     ToolTip="FFmpeg input options, one name=value per line" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= ADVANCED ================= -->
+                <TabItem Header="Advanced" Tag="advanced data folder portable cache reset analysis">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="Advanced" Style="{StaticResource SectionTitle}" />
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"><Run Text="Data folder: " Foreground="{StaticResource SubtleText}" /><Run x:Name="DataFolderRun" /></TextBlock>
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,12"
+                                       Text="Settings, queue, analysis cache, library history, logs and downloaded tools live here. Portable mode: put an empty portable.txt next to the exe. The AV1STUDIO_HOME environment variable overrides the location." />
+                            <WrapPanel>
+                                <Button Content="Open data folder" Click="OnOpenDataFolder" Margin="0,0,8,6" />
+                                <Button Content="Clear AB-AV1 analysis cache…" Click="OnClearCache" Margin="0,0,8,6"
+                                        ToolTip="Forget cached CRF search results (files will be re-analysed). Your videos are not affected." />
+                            </WrapPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ================= LOGS ================= -->
+                <TabItem Header="Logs" Tag="logs log retention tool output ffmpeg output">
+                    <ScrollViewer>
+                        <StackPanel>
+                            <TextBlock Text="Logs" Style="{StaticResource SectionTitle}" />
+                            <CheckBox Content="Show raw FFmpeg / ab-av1 output in the Log tab" IsChecked="{Binding ShowToolOutput}" Margin="0,0,0,8" />
+                            <DockPanel Style="{StaticResource Row}">
+                                <TextBlock Text="Keep log files (days)" Style="{StaticResource FieldLabel}" />
+                                <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding LogRetentionDays}" />
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource Hint}" Text="A daily log file is written to the data folder's logs directory, including all tool output. Older files are removed at startup." />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+        </DockPanel>
+    </DockPanel>
+</Window>

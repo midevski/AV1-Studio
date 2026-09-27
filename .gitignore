@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+dist/
+installer/Output/
+TestResults/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+# Local tools, data and logs (never commit binaries or personal data)
+tools/
+data/
+logs/
+*.log
+portable.txt
+
+# Local working notes
+*.md

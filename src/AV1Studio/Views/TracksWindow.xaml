@@ -1,0 +1,37 @@
+<Window x:Class="AV1Studio.Views.TracksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Choose tracks — AV1 Studio" Icon="pack://application:,,,/AV1Studio;component/Assets/av1studio.ico" Width="620" Height="560" MinWidth="480" MinHeight="360"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="14">
+        <TextBlock DockPanel.Dock="Top" x:Name="FileText" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4" />
+        <TextBlock DockPanel.Dock="Top" Foreground="{StaticResource SubtleText}" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Tick the tracks to keep in the AV1 output. Tracks are stream-copied (no re-encode) with their language and title metadata. 'Use global rules' falls back to the Audio/Subtitle settings." />
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Use global rules" Click="OnReset" Margin="0,0,8,0" />
+            <Button Content="OK" IsDefault="True" Click="OnOk" Width="90" Margin="0,0,8,0" Style="{StaticResource PrimaryButtonStyle}" />
+            <Button Content="Cancel" IsCancel="True" Width="90" />
+        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="AUDIO" Style="{StaticResource CardTitle}" />
+                <ItemsControl x:Name="AudioList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Keep}" Content="{Binding Label}" Margin="0,2" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="SUBTITLES" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
+                <ItemsControl x:Name="SubList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Keep}" Content="{Binding Label}" Margin="0,2" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock x:Name="NoneText" Foreground="{StaticResource SubtleText}" Margin="0,8,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

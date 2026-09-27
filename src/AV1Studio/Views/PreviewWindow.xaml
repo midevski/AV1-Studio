@@ -1,0 +1,74 @@
+<Window x:Class="AV1Studio.Views.PreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:AV1Studio.Views"
+        Title="Preview — AV1 Studio" Icon="pack://application:,,,/AV1Studio;component/Assets/av1studio.ico" Width="900" Height="720" MinWidth="560" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="16">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Button DockPanel.Dock="Right" Content="Close" IsCancel="True" Width="100" Click="OnClose" />
+            <StackPanel>
+                <TextBlock Text="{Binding EncodeTarget.FileName}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="SettingsText" Style="{StaticResource Hint}" />
+            </StackPanel>
+        </DockPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="PREVIEW" Style="{StaticResource CardTitle}" />
+                        <DockPanel Margin="0,0,0,8">
+                            <TextBlock Text="Duration (s)" Style="{StaticResource Label}" />
+                            <TextBox Width="60" Text="{Binding PreviewSeconds}" ToolTip="Length of the sample, taken about a third into the file" />
+                            <Button Content="Cancel" Command="{Binding CancelPreviewCommand}" DockPanel.Dock="Right" Margin="6,0,0,0" />
+                            <Button Command="{Binding PreviewJobCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" Padding="12,4"
+                                    ToolTip="Encode a short sample with exactly the mode and settings this file was queued with">
+                                <TextBlock Text="Encode preview" />
+                            </Button>
+                        </DockPanel>
+                        <ProgressBar IsIndeterminate="True" Height="4" Margin="0,0,0,6" Visibility="{Binding IsPreviewRunning, Converter={StaticResource BoolVis}}" />
+                        <TextBlock Text="{Binding PreviewStatus}" Style="{StaticResource Hint}" Margin="0,0,0,8" />
+                        <Grid Visibility="{Binding HasPreview, Converter={StaticResource BoolVis}}">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="6" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Source" Style="{StaticResource Label}" />
+                                <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="4">
+                                    <Image Source="{Binding SourceFrame}" Stretch="Uniform" MinHeight="60" />
+                                </Border>
+                                <Button Content="Play source segment" Command="{Binding PlaySourceSegmentCommand}" Margin="0,6,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Encoded" Style="{StaticResource Label}" />
+                                <Border BorderBrush="{StaticResource CardBorder}" BorderThickness="1" CornerRadius="4">
+                                    <Image Source="{Binding EncodedFrame}" Stretch="Uniform" MinHeight="60" />
+                                </Border>
+                                <Button Content="Play encoded preview" Command="{Binding PlayPreviewCommand}" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Margin="0,10,0,0" DataContext="{Binding Preview}" Visibility="{Binding Converter={StaticResource NotEmptyVis}}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                            <TextBlock Text="Output size" Style="{StaticResource Label}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Size, Converter={StaticResource Bytes}}" Style="{StaticResource Value}" />
+                            <TextBlock Grid.Row="1" Text="Bitrate" Style="{StaticResource Label}" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding BitrateKbps, StringFormat={}{0:0} kb/s}" Style="{StaticResource Value}" />
+                            <TextBlock Grid.Row="2" Text="Encoding speed" Style="{StaticResource Label}" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource Value}">
+                                <Run Text="{Binding EncodeFps, StringFormat={}{0:0.0} fps, TargetNullValue='N/A', Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding EncodeTime, StringFormat={}{0:mm\\:ss}, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock Grid.Row="3" Text="Quality" Style="{StaticResource Label}" />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding QualityText}" Style="{StaticResource Value}" />
+                            <TextBlock Grid.Row="4" Text="Preset / encoder" Style="{StaticResource Label}" />
+                            <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource Value}"><Run Text="{Binding Preset, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Encoder, Mode=OneWay}" /></TextBlock>
+                            <TextBlock Grid.Row="5" Text="Full file (estimate)" Style="{StaticResource Label}"
+                                       ToolTip="Extrapolated from the sample. Real size depends on the content of the whole file." />
+                            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding EstimatedFullSize, Converter={StaticResource Bytes}}" Style="{StaticResource Value}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                           Text="The sample is taken about a third into the file. Compare the frames and play both segments before encoding a whole library. Sizes are extrapolated and vary with content." />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
