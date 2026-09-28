@@ -10,6 +10,9 @@ namespace AV1Studio.Services;
 public sealed class CrfSearchOutcome
 {
     public CrfSearchResult? Result { get; set; }
+    /// <summary>Every tested CRF, in order. Filled on the tool-output thread; the on-screen list
+    /// (QueueItem.Attempts) is updated separately on the UI thread and must not be read from here.</summary>
+    public List<CrfAttempt> Attempts { get; } = new();
     /// <summary>ab-av1 reported no CRF satisfies min VMAF + max encoded percent.</summary>
     public bool NoSuitableCrf { get; set; }
     public string? Error { get; set; }
@@ -70,6 +73,7 @@ public static class CrfSearchRunner
                 switch (CrfSearchParser.ParseStdoutLine(line))
                 {
                     case AttemptEvent a:
+                        lock (outcome.Attempts) outcome.Attempts.Add(a.Attempt);
                         Ui.Post(() => item.Attempts.Add(a.Attempt));
                         var msg = $"Tested CRF {Fmt.Num(a.Attempt.Crf)} → VMAF {Fmt.Num(a.Attempt.Vmaf, "0.00")}, " +
                                   $"predicted {Fmt.Bytes(a.Attempt.PredictedSize)} ({Fmt.Percent(a.Attempt.PredictedPercent)})" +
@@ -281,7 +285,10 @@ public static class ProgressMonitor
             var elapsed = sw.Elapsed.TotalSeconds;
             if (latest.Frame is long f && elapsed > 0) item.AverageFps = f / elapsed;
 
-            if (latest.OutTimeSeconds is double ot && ot > 0 && latest.TotalSize is long ts)
+            // Encoders buffer video at the start (lookahead) while copied audio already advances the output time, so
+            // the first reports contain little more than the file header: bitrate is shown once real data is written.
+            const long minMeaningfulBytes = 256 * 1024;
+            if (latest.OutTimeSeconds is double ot && ot > 0 && latest.TotalSize is long ts && ts >= minMeaningfulBytes)
             {
                 item.AverageBitrateKbps = ts * 8 / ot / 1000;
                 if (lastT is double lt && lastSize is long ls && ot - lt > 0.5)

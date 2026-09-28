@@ -246,9 +246,17 @@ public static class AbAv1Commands
         if (s.CrfIncrement is double inc) { a.Add("--crf-increment"); a.Add(Fmt.Arg(inc)); }
         else if (tools.NeedsIntegerCrfIncrement && !s.HardwareEncoding) { a.Add("--crf-increment"); a.Add("1"); }
         if (s.Thorough) a.Add("--thorough");
-        if (s.Samples is int n) { a.Add("--samples"); a.Add(n.ToString()); }
-        if (!string.IsNullOrWhiteSpace(s.SampleEvery)) { a.Add("--sample-every"); a.Add(s.SampleEvery.Trim()); }
-        if (s.MinSamples is int ms) { a.Add("--min-samples"); a.Add(ms.ToString()); }
+        if (s.Samples is int n and > 0)
+        {
+            // A fixed count overrides --sample-every / --min-samples, so those are not passed.
+            a.Add("--samples"); a.Add(n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            // Auto: ab-av1 decides the number of samples from the video's duration.
+            if (!string.IsNullOrWhiteSpace(s.SampleEvery)) { a.Add("--sample-every"); a.Add(s.SampleEvery.Trim()); }
+            if (s.MinSamples is int ms) { a.Add("--min-samples"); a.Add(ms.ToString(System.Globalization.CultureInfo.InvariantCulture)); }
+        }
         if (!string.IsNullOrWhiteSpace(s.SampleDuration)) { a.Add("--sample-duration"); a.Add(s.SampleDuration.Trim()); }
         if (!s.AbAv1SampleCache) { a.Add("--cache"); a.Add("false"); }
         foreach (var v in (s.VmafArgs ?? "").Split(['\r', '\n', ' '], StringSplitOptions.RemoveEmptyEntries))
@@ -277,6 +285,7 @@ public static class AbAv1Commands
         if (streams.AudioCodec != null) { a.Add("--acodec"); a.Add(streams.AudioCodec); }
         if (streams.Downmix) a.Add("--downmix-to-stereo");
         foreach (var e in streams.EncArgs) { a.Add("--enc"); a.Add(e); }
+        foreach (var e in OutputContainers.FromExtension(System.IO.Path.GetExtension(partialOutput)).EncArgs) { a.Add("--enc"); a.Add(e); }
         if (s.AbAv1Verify && tools.EncodeVerify) a.Add("--verify");
         if (s.FailFast && tools.EncodeFailFast) a.Add("--fail-fast");
         // ffmpeg's machine readable progress (key=value) is written to a file the GUI tails once a second.
@@ -378,6 +387,13 @@ public static class AbAv1Commands
             foreach (var d in subs.Except(keepSubs)) plan.EncArgs.Add($"map=-0:s:{d.TypeIndex}");
             if (mp4) plan.EncArgs.Add("c:s=mov_text");
             if (webm) plan.EncArgs.Add("c:s=webvtt");
+            if (mkv)
+            {
+                // MP4 text subtitles (mov_text) cannot be stored in Matroska as they are: convert them to SRT.
+                for (int outIdx = 0; outIdx < keepSubs.Count; outIdx++)
+                    if (string.Equals(keepSubs[outIdx].Codec, "mov_text", StringComparison.OrdinalIgnoreCase))
+                        plan.EncArgs.Add($"c:s:{outIdx}=srt");
+            }
             if (!string.IsNullOrWhiteSpace(s.DefaultSubtitleLanguage))
             {
                 var lang = s.DefaultSubtitleLanguage.Trim().ToLowerInvariant();

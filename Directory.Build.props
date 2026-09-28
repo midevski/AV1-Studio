@@ -8,5 +8,14 @@
     <Copyright>Copyright © 2026 AV1 Studio contributors</Copyright>
     <Description>AV1 Studio — a modern AV1 encoding application for Windows</Description>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <!-- Release builds must not contain the build machine's folders (user name, project location):
+       source paths in debug info and exception stack traces are mapped to a neutral root. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</RepoRoot>
+    <PathMap>$(RepoRoot)=AV1Studio\</PathMap>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 </Project>

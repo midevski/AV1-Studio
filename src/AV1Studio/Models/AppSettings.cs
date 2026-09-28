@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AV1Studio.Services;
 
 namespace AV1Studio.Models;
 
@@ -11,7 +12,6 @@ public enum NamingMode { Suffix, SameName, Template, Auto }
 public enum CollisionPolicy { Skip, AppendNumber, Overwrite, ReuseIfValid, Ask }
 public enum DeleteMode { Permanent, RecycleBin }
 public enum SpaceAction { PauseQueue, SkipFile }
-public enum EncoderPriority { Normal, BelowNormal, Idle }
 public enum ScdMode { Default, On, Off }
 public enum AppTheme { Dark, Light }
 public enum CpuUsageMode { Auto, Maximum, Balanced, Low, Custom }
@@ -21,10 +21,11 @@ public enum ProcessPriority { Idle, BelowNormal, Normal, AboveNormal, High }
 /// <summary>CPU usage for one processing stage (see ResourcePlanner).</summary>
 public sealed class CpuProfile
 {
+    /// <summary>Default: Auto — nearly all logical processors (a few kept for Windows), at High priority.</summary>
     public CpuUsageMode Mode { get; set; } = CpuUsageMode.Auto;
     /// <summary>Custom: logical processors to use (0 = all).</summary>
     public int Threads { get; set; }
-    public ProcessPriority Priority { get; set; } = ProcessPriority.BelowNormal;
+    public ProcessPriority Priority { get; set; } = ProcessPriority.High;
     /// <summary>Custom, optional: explicit logical processors, e.g. "0-7,12".</summary>
     public string Affinity { get; set; } = "";
 }
@@ -41,6 +42,40 @@ public sealed class AppSettings
 
     /// <summary>First-run system check has been shown.</summary>
     public bool FirstRunDone { get; set; }
+
+    /// <summary>Settings format version; older files are upgraded once on load (see <see cref="Upgrade"/>).</summary>
+    public int SettingsVersion { get; set; }
+    public const int CurrentSettingsVersion = 4;
+
+    /// <summary>Applies default changes of newer versions to settings saved by an older version.</summary>
+    public void Upgrade()
+    {
+        Manual ??= new ManualSettings();
+        SearchCpu ??= new CpuProfile();
+        EncodeCpu ??= new CpuProfile();
+        if (SettingsVersion < 2)
+        {
+            // 1.0.0: encoding gets the machine by default — all logical processors, High priority.
+            SearchCpu = new CpuProfile();
+            EncodeCpu = new CpuProfile();
+            Extensions = MediaTypes.WithDefaults(Extensions);
+        }
+        if (SettingsVersion < 3)
+        {
+            // One output container for both modes, MKV or MP4. An explicit earlier choice is kept.
+            Container = Container is ContainerFormat.Mp4 || (Container == ContainerFormat.SameAsSource && Manual.Container == ContainerFormat.Mp4)
+                ? ContainerFormat.Mp4 : ContainerFormat.Mkv;
+        }
+        if (SettingsVersion < 4)
+        {
+            // CPU usage default changed from Maximum to Auto; a mode the user picked themselves is kept.
+            foreach (var p in new[] { SearchCpu, EncodeCpu })
+                if (p.Mode == CpuUsageMode.Maximum) p.Mode = CpuUsageMode.Auto;
+        }
+        Manual.Container = Container; // legacy field, kept in step
+        if (string.IsNullOrWhiteSpace(Extensions)) Extensions = MediaTypes.DefaultExtensionList;
+        SettingsVersion = CurrentSettingsVersion;
+    }
 
     // ---------- appearance ----------
     public AppTheme Theme { get; set; } = AppTheme.Dark;
@@ -59,7 +94,7 @@ public sealed class AppSettings
     /// <summary>Empty = write next to the source file.</summary>
     public string DestinationFolder { get; set; } = "";
     public bool Recursive { get; set; } = true;
-    public string Extensions { get; set; } = "mkv,mp4,m4v,webm,avi,mov,wmv,ts,m2ts,mts,flv,mpg,mpeg,vob,ogv,3gp,divx";
+    public string Extensions { get; set; } = MediaTypes.DefaultExtensionList;
     public bool SkipAv1Sources { get; set; } = true;
     public double MinFileSizeMB { get; set; } = 0;
 
@@ -143,7 +178,8 @@ public sealed class AppSettings
     public bool KeepAttachments { get; set; } = true;
 
     // ---------- output ----------
-    public ContainerFormat Container { get; set; } = ContainerFormat.SameAsSource;
+    /// <summary>Output container for both modes (the video is always AV1). Default: MKV.</summary>
+    public ContainerFormat Container { get; set; } = OutputContainers.Default;
     public NamingMode Naming { get; set; } = NamingMode.Auto;
     public string Suffix { get; set; } = "_AV1";
     /// <summary>Tokens: {name} {crf} {vmaf} {preset} {date}</summary>
@@ -167,8 +203,6 @@ public sealed class AppSettings
 
     // ---------- processing ----------
     public int ConcurrentJobs { get; set; } = 1;
-    /// <summary>Legacy (pre-1.0) priority setting; superseded by the CPU usage profiles.</summary>
-    public EncoderPriority Priority { get; set; } = EncoderPriority.BelowNormal;
     /// <summary>CPU usage of the AB-AV1 CRF search (sample encodes + VMAF).</summary>
     public CpuProfile SearchCpu { get; set; } = new();
     /// <summary>CPU usage of final encodes (AB-AV1 and Manual AV1) and previews.</summary>

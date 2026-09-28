@@ -33,6 +33,7 @@ public class QueueIntegrityTests
                 vm.Settings.Manual.Encoder = "libsvtav1";
                 vm.Settings.Manual.Quality = 30;
                 vm.Settings.Manual.Preset = "6";
+                vm.OutputContainer = ContainerFormat.Mkv;
                 var item = new QueueItem { SourcePath = @"D:\Movies\A.mkv", ProfileId = vm.CaptureProfile() };
 
                 // the user keeps working in the UI
@@ -40,12 +41,15 @@ public class QueueIntegrityTests
                 vm.Settings.Manual.Quality = 40;
                 vm.Settings.Manual.Preset = "10";
                 vm.Settings.Manual.Encoder = "av1_nvenc";
+                vm.OutputContainer = ContainerFormat.Mp4;
 
                 var job = vm.JobSettings(item);
                 Assert.Equal(95, job.TargetVmaf);
                 Assert.Equal(30, job.Manual.Quality);
                 Assert.Equal("6", job.Manual.Preset);
                 Assert.Equal("libsvtav1", job.Manual.Encoder);
+                Assert.Equal(ContainerFormat.Mkv, job.Container);          // queued job keeps its container
+                Assert.Equal(ContainerFormat.Mp4, vm.Settings.Container);   // new files use the new one
 
                 // identical settings share one snapshot, different settings get a new one
                 var again = vm.CaptureProfile();

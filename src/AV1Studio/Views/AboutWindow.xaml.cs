@@ -33,9 +33,11 @@ public partial class AboutWindow : Window
         try { Process.Start("explorer.exe", [AppPaths.Root]); } catch { }
     }
 
-    private void OnCopy(object sender, RoutedEventArgs e)
+    private async void OnCopy(object sender, RoutedEventArgs e)
     {
-        try { Clipboard.SetText(DiagBox.Text); } catch { }
+        if (!await Util.ClipboardHelper.TrySetTextAsync(DiagBox.Text))
+            MessageBox.Show(this, "The clipboard is currently in use by another application. Use \"Save as…\" instead.",
+                "Copy failed", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     private void OnRefresh(object sender, RoutedEventArgs e) => DiagBox.Text = _vm.DiagnosticsText;

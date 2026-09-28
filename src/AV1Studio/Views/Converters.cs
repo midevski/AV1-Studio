@@ -142,3 +142,44 @@ public sealed class EnumValuesExtension : System.Windows.Markup.MarkupExtension
     public Type? Type { get; set; }
     public override object ProvideValue(IServiceProvider sp) => Type is null ? Array.Empty<object>() : Enum.GetValues(Type);
 }
+
+/// <summary>Enum value → readable text ("BelowNormal" → "Below normal").</summary>
+public sealed class EnumDisplayConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) => value switch
+    {
+        null => "",
+        ProcessPriority.Idle => "Low",
+        ProcessPriority.High => "High (default)",
+        CpuUsageMode.Auto => "Auto (default)",
+        Enum e => System.Text.RegularExpressions.Regex.Replace(e.ToString(), "(?<=[a-z0-9])([A-Z])", m => " " + m.Value.ToLowerInvariant()),
+        _ => value.ToString() ?? "",
+    };
+
+    public object ConvertBack(object v, Type t, object p, CultureInfo c) => throw new NotSupportedException();
+}
+
+/// <summary>Number of CRF-search samples: "Auto" (null — ab-av1 decides) or a fixed count.</summary>
+public static class SampleOptions
+{
+    public const string Auto = "Auto";
+    public static readonly IReadOnlyList<string> Choices = [Auto, .. Enumerable.Range(1, 10).Select(i => i.ToString(CultureInfo.InvariantCulture))];
+
+    public static string ToText(int? samples) => samples is int n and > 0 ? n.ToString(CultureInfo.InvariantCulture) : Auto;
+    public static int? FromText(string? text) =>
+        int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n > 0 ? n : null;
+}
+
+/// <summary>Binds int? Samples to the "Auto / 1 / 2 …" list.</summary>
+public sealed class SamplesConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) => SampleOptions.ToText(value as int?);
+    public object? ConvertBack(object value, Type t, object p, CultureInfo c) => SampleOptions.FromText(value as string);
+}
+
+/// <summary>True when the value is null (parameter "invert": true when it has a value).</summary>
+public sealed class IsNullConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) => (value is null) != (p as string == "invert") ? true : false;
+    public object ConvertBack(object v, Type t, object p, CultureInfo c) => throw new NotSupportedException();
+}

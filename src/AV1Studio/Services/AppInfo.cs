@@ -8,7 +8,7 @@ public static class AppInfo
     public const string Name = "AV1 Studio";
     public const string Description = "A modern AV1 encoding application for Windows.";
     public const string AppUserModelId = "AV1Studio.AV1Studio";
-    public const string RepositoryUrl = "https://github.com/"; // set to the public repository when published
+    public const string RepositoryUrl = "https://github.com/midevski/AV1-Studio";
 
     public static string Version
     {

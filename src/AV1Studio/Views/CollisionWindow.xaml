@@ -6,11 +6,11 @@
     <StackPanel Margin="20">
         <TextBlock x:Name="Heading" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
         <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,14"
-                   Text="Choose what to do with every file whose output already exists. Source files are never overwritten." />
+                   Text="Choose what to do with these files. Source files are never changed." />
         <Button Click="OnReuse" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8" Style="{StaticResource PrimaryButtonStyle}" IsDefault="True">
             <StackPanel>
                 <TextBlock Text="Reuse valid outputs (recommended)" FontWeight="SemiBold" />
-                <TextBlock Text="Existing complete AV1 files are verified and kept; damaged or incomplete ones are encoded again." TextWrapping="Wrap" FontSize="12" />
+                <TextBlock Text="Complete, valid AV1 files are kept without re-encoding. Invalid files are skipped and left untouched." TextWrapping="Wrap" FontSize="12" />
             </StackPanel>
         </Button>
         <Button Click="OnSkip" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
@@ -22,7 +22,7 @@
         <Button Click="OnReplace" HorizontalContentAlignment="Left" Margin="0,0,0,6" Padding="12,8">
             <StackPanel>
                 <TextBlock Text="Replace existing outputs" FontWeight="SemiBold" />
-                <TextBlock Text="Encode again and overwrite the existing OUTPUT files after verification." TextWrapping="Wrap" FontSize="12" />
+                <TextBlock Text="Encode again and replace the existing files once the new ones are verified." TextWrapping="Wrap" FontSize="12" />
             </StackPanel>
         </Button>
         <Button Click="OnNumber" HorizontalContentAlignment="Left" Margin="0,0,0,14" Padding="12,8">

@@ -6,7 +6,7 @@
     <DockPanel Margin="14">
         <TextBlock DockPanel.Dock="Top" x:Name="FileText" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4" />
         <TextBlock DockPanel.Dock="Top" Foreground="{StaticResource SubtleText}" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="Tick the tracks to keep in the AV1 output. Tracks are stream-copied (no re-encode) with their language and title metadata. 'Use global rules' falls back to the Audio/Subtitle settings." />
+                   Text="Select the tracks to keep. Tracks are copied unchanged with their language and title. 'Use global rules' applies the audio and subtitle settings." />
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="Use global rules" Click="OnReset" Margin="0,0,8,0" />
             <Button Content="OK" IsDefault="True" Click="OnOk" Width="90" Margin="0,0,8,0" Style="{StaticResource PrimaryButtonStyle}" />

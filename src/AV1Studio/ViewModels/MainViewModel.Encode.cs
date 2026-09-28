@@ -36,8 +36,8 @@ public sealed partial class MainViewModel
     public bool IsAbAv1Mode { get => SelectedMode == EncodeMode.AbAv1; set { if (value) SelectedMode = EncodeMode.AbAv1; } }
 
     public string ModeHint => IsAbAv1Mode
-        ? "Files you add now will be encoded with AB-AV1: target quality (VMAF) → automatic CRF → encode."
-        : "Files you add now will be encoded with Manual AV1: your encoder, quality and settings, directly through FFmpeg.";
+        ? "New files use AB-AV1: the CRF is chosen automatically to reach the VMAF target."
+        : "New files use Manual AV1 with your encoder and settings.";
 
     // ============================================================= Manual AV1 settings
 
@@ -132,8 +132,26 @@ public sealed partial class MainViewModel
     public IReadOnlyList<ChoiceOption<int?>> TuneChoices { get; } =
         [new(null, "Encoder default"), new(0, "Visual quality (VQ)"), new(1, "PSNR")];
 
-    public IReadOnlyList<ChoiceOption<ContainerFormat>> ContainerChoices { get; } =
-        [new(ContainerFormat.Mkv, "MKV (recommended)"), new(ContainerFormat.Mp4, "MP4"), new(ContainerFormat.SameAsSource, "Same as source (MKV/MP4)")];
+    /// <summary>MKV / MP4. MP4 is marked when the installed FFmpeg cannot write AV1 into MP4 (it is then refused at start).</summary>
+    public IReadOnlyList<ChoiceOption<ContainerFormat>> OutputContainerChoices =>
+        OutputContainers.Choices.Select(c => new ChoiceOption<ContainerFormat>(c.Format,
+            c == OutputContainers.Mp4 && Tools.FfmpegPath != null && !Tools.CanWriteAv1Mp4 ? "MP4 (not supported by this FFmpeg)" : c.Label)).ToList();
+
+    /// <summary>Output container for files added from now on (both modes). Queued files keep theirs.</summary>
+    public ContainerFormat OutputContainer
+    {
+        get => Settings.Container is ContainerFormat.Mp4 ? ContainerFormat.Mp4 : ContainerFormat.Mkv;
+        set
+        {
+            if (Settings.Container == value) return;
+            Settings.Container = value;
+            Manual.Container = value;
+            SaveSettings();
+            Log.Info($"Output container for new files: {OutputContainers.Resolve(value, "").Label}");
+            Notify(nameof(OutputContainer), nameof(CommandPreview), nameof(SelectedPreviewCommands), nameof(OutputSummary));
+            NotifyTargetStorage();
+        }
+    }
 
     public IReadOnlyList<ChoiceOption<string>> AudioCodecChoices { get; } =
     [
@@ -175,7 +193,8 @@ public sealed partial class MainViewModel
         EncodeTarget?.Probe is { } p ? string.Join(Environment.NewLine, ManualCommands.Warnings(Manual, p).Select(w => "⚠ " + w)) : "";
     public bool HasManualWarnings => ManualWarningsText.Length > 0;
 
-    public string CommandPreviewTitle => IsManualMode ? "FFmpeg command (Manual AV1)" : "ab-av1 commands (AB-AV1)";
+    /// <summary>Shown in the Manual AV1 settings window, which always describes Manual AV1.</summary>
+    public string CommandPreviewTitle => "FFmpeg command (Manual AV1)";
 
     /// <summary>The exact command(s) that would run for the target file with the current settings.</summary>
     public string CommandPreview
@@ -184,24 +203,30 @@ public sealed partial class MainViewModel
         {
             var i = EncodeTarget;
             if (i is null) return "Add a file to see the exact command.";
-            if (!IsManualMode) return AbAv1PreviewFor(i);
-            if (Tools.FfmpegPath is null) return "FFmpeg not found — see Settings › Tools.";
-            if (i.Probe is null) return "Reading the file (ffprobe)…";
-            try
-            {
-                var ext = OutputPlanner.ContainerExtension(Manual.Container, i.SourcePath);
-                var streams = AbAv1Commands.PlanStreams(TrackOptions.FromManual(Manual), i.Probe, ext, i.AudioSelection, i.SubtitleSelection);
-                var plan = OutputPlanner.Plan(Settings, i, i.CrfOverride ?? Manual.Quality, ext, Manual.Preset);
-                var args = ManualCommands.Build(Manual, i.Probe, i.SourcePath, plan.PartialPath, ext, streams,
-                    i.CrfOverride ?? Manual.Quality, Path.Combine(AppPaths.Progress, "<progress>.txt"), Settings.FailFast);
-                var notes = streams.Warnings.Concat(streams.Blocker is null ? [] : [streams.Blocker])
-                    .Concat(plan.SkipReason is null ? [] : [plan.SkipReason]).Concat(ManualCommands.Validate(Manual, Tools)).ToList();
-                return CommandLine.Format(Tools.FfmpegPath, args) +
-                       $"\n\n# Writes {Path.GetFileName(plan.PartialPath)}, renamed to {Path.GetFileName(plan.FinalPath)} only after verification." +
-                       (notes.Count > 0 ? "\n\n# Notes\n" + string.Join("\n", notes.Select(n => "• " + n)) : "");
-            }
-            catch (Exception ex) { return "Cannot build the command: " + ex.Message; }
+            return ManualPreviewFor(i, Settings);
         }
+    }
+
+    /// <summary>The FFmpeg command the Manual AV1 engine runs for this file with these settings.</summary>
+    private string ManualPreviewFor(QueueItem i, AppSettings s)
+    {
+        if (Tools.FfmpegPath is null) return "FFmpeg not found — see Settings › Tools.";
+        if (i.Probe is null) return "Reading the file (ffprobe)…";
+        try
+        {
+            var m = s.Manual;
+            var ext = OutputPlanner.ContainerExtension(s.Container, i.SourcePath);
+            var streams = AbAv1Commands.PlanStreams(TrackOptions.FromManual(m), i.Probe, ext, i.AudioSelection, i.SubtitleSelection);
+            var plan = OutputPlanner.Plan(s, i, i.CrfOverride ?? m.Quality, ext, m.Preset);
+            var args = ManualCommands.Build(m, i.Probe, i.SourcePath, plan.PartialPath, ext, streams,
+                i.CrfOverride ?? m.Quality, Path.Combine(AppPaths.Progress, "<progress>.txt"), s.FailFast);
+            var notes = streams.Warnings.Concat(streams.Blocker is null ? [] : [streams.Blocker])
+                .Concat(plan.SkipReason is null ? [] : [plan.SkipReason]).Concat(ManualCommands.Validate(m, Tools)).ToList();
+            return CommandLine.Format(Tools.FfmpegPath, args) +
+                   $"\n\n# Writes {Path.GetFileName(plan.PartialPath)}, renamed to {Path.GetFileName(plan.FinalPath)} only after verification." +
+                   (notes.Count > 0 ? "\n\n# Notes\n" + string.Join("\n", notes.Select(n => "• " + n)) : "");
+        }
+        catch (Exception ex) { return "Cannot build the command: " + ex.Message; }
     }
 
     // ============================================================= storage for the target
@@ -262,7 +287,7 @@ public sealed partial class MainViewModel
 
     private void InitEncodeCommands()
     {
-        EncodePreviewCommand = new RelayCommand(() => _ = RunPreviewAsync(false), () => !IsPreviewRunning && EncodeTarget?.Probe != null && Tools.FfmpegPath != null);
+        EncodePreviewCommand = new RelayCommand(() => _ = RunPreviewAsync(false, EncodeMode.Manual), () => !IsPreviewRunning && EncodeTarget?.Probe != null && Tools.FfmpegPath != null);
         PreviewJobCommand = new RelayCommand(() => _ = RunPreviewAsync(true), () => !IsPreviewRunning && EncodeTarget?.Probe != null && Tools.FfmpegPath != null);
         CancelPreviewCommand = new RelayCommand(() => _previewCts?.Cancel(), () => IsPreviewRunning);
         PlayPreviewCommand = new RelayCommand(() => Open(Preview?.OutputPath), () => Preview != null);
@@ -281,11 +306,11 @@ public sealed partial class MainViewModel
 
     /// <summary>Encodes a preview of <see cref="EncodeTarget"/>. <paramref name="useJobSettings"/>: with the settings and mode
     /// the file was queued with (what will really run); otherwise with the current settings and mode.</summary>
-    private async Task RunPreviewAsync(bool useJobSettings)
+    private async Task RunPreviewAsync(bool useJobSettings, EncodeMode? forceMode = null)
     {
         var item = EncodeTarget;
         if (item is null) return;
-        var mode = useJobSettings && item.Kind == ItemKind.Video ? item.Mode : SelectedMode;
+        var mode = forceMode ?? (useJobSettings && item.Kind == ItemKind.Video ? item.Mode : SelectedMode);
         var settings = (useJobSettings ? JobSettings(item) : Settings).Clone();
         var errors = mode == EncodeMode.Manual ? ManualCommands.Validate(settings.Manual, Tools) : AbAv1Commands.Validate(settings);
         if (errors.Count > 0) { PreviewStatus = "Cannot preview: " + string.Join(" ", errors); return; }

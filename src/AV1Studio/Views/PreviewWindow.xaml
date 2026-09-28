@@ -22,7 +22,7 @@
                             <TextBox Width="60" Text="{Binding PreviewSeconds}" ToolTip="Length of the sample, taken about a third into the file" />
                             <Button Content="Cancel" Command="{Binding CancelPreviewCommand}" DockPanel.Dock="Right" Margin="6,0,0,0" />
                             <Button Command="{Binding PreviewJobCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" Padding="12,4"
-                                    ToolTip="Encode a short sample with exactly the mode and settings this file was queued with">
+                                    ToolTip="Encode a short sample with the settings of this file">
                                 <TextBlock Text="Encode preview" />
                             </Button>
                         </DockPanel>
@@ -61,13 +61,13 @@
                             <TextBlock Grid.Row="4" Text="Preset / encoder" Style="{StaticResource Label}" />
                             <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource Value}"><Run Text="{Binding Preset, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Encoder, Mode=OneWay}" /></TextBlock>
                             <TextBlock Grid.Row="5" Text="Full file (estimate)" Style="{StaticResource Label}"
-                                       ToolTip="Extrapolated from the sample. Real size depends on the content of the whole file." />
+                                       ToolTip="Estimated from the sample." />
                             <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding EstimatedFullSize, Converter={StaticResource Bytes}}" Style="{StaticResource Value}" />
                         </Grid>
                     </StackPanel>
                 </Border>
                 <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                           Text="The sample is taken about a third into the file. Compare the frames and play both segments before encoding a whole library. Sizes are extrapolated and vary with content." />
+                           Text="The sample starts about a third into the video. Estimated sizes may differ from the final result." />
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

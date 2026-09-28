@@ -24,9 +24,10 @@ public sealed partial class MainViewModel : ObservableObject
         get => _settings;
         private set { _settings = value; OnPropertyChanged(); }
     }
-    public ObservableCollection<QueueItem> Items { get; } = new();
+    /// <summary>The queue: the single source of truth for jobs (the processor re-reads it before each file).</summary>
+    public BulkObservableCollection<QueueItem> Items { get; } = new();
     public ICollectionView ItemsView { get; }
-    public ObservableCollection<LogEntry> LogEntries { get; } = new();
+    public BulkObservableCollection<LogEntry> LogEntries { get; } = new();
 
     private AnalysisCache _cache = new();
     private LibraryStore _library = new();
@@ -44,8 +45,9 @@ public sealed partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         Settings = JsonFile.Load<AppSettings>(AppPaths.Settings) ?? new AppSettings();
-        Settings.Manual ??= new ManualSettings();
-        ItemsView = CollectionViewSource.GetDefaultView(Items);
+        Settings.Upgrade();
+        // A dedicated view for the queue grid (not the shared default view that other controls bound to Items use).
+        ItemsView = new ListCollectionView(Items);
         ItemsView.Filter = FilterItem;
         // Folder jobs are shown grouped by their (relative) folder, mirroring the library structure.
         ItemsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(QueueItem.GroupKey)));
@@ -93,7 +95,12 @@ public sealed partial class MainViewModel : ObservableObject
         OpenSettingsCommand = new RelayCommand(OpenSettings, () => !IsRunning);
         RedetectToolsCommand = new RelayCommand(() => _ = DetectToolsAsync(), () => !IsRunning);
         OpenLogFolderCommand = new RelayCommand(() => Reveal(Log.CurrentFile));
-        CopyTextCommand = new RelayCommand(p => { if (p is string s && s.Length > 0) Clipboard.SetText(s); });
+        CopyTextCommand = new RelayCommand(async p =>
+        {
+            if (p is not string s || s.Length == 0) return;
+            if (await ClipboardHelper.TrySetTextAsync(s)) Log.Info("Copied to the clipboard");
+            else InfoDialog?.Invoke("Copy failed", "The clipboard is currently in use by another application. Please try again.");
+        });
         ClearLogCommand = new RelayCommand(() => LogEntries.Clear());
         CleanupPartialsCommand = new RelayCommand(CleanupPartials, () => !IsRunning);
         ToggleHardwareCommand = new RelayCommand(() => HardwareEncoding = !HardwareEncoding, () => CanToggleHardware);
@@ -128,9 +135,11 @@ public sealed partial class MainViewModel : ObservableObject
         {
             lock (_profiles) foreach (var (k, v) in state.Profiles) _profiles[k] = v;
             lock (_folders) _folders.AddRange(state.Folders);
-            var seen = new HashSet<Guid>();
-            foreach (var i in state.Items)
-                if (seen.Add(i.Id)) Items.Add(i); // never load the same job twice
+            // never load the same job, or the same source file, twice
+            var seenIds = new HashSet<Guid>();
+            var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            Items.AddRange(state.Items.Where(i => !string.IsNullOrWhiteSpace(i.SourcePath)
+                                                  && seenIds.Add(i.Id) && seenPaths.Add(OutputPlanner.Normalize(i.SourcePath))).ToList());
         }
         RecoverInterrupted();
 
@@ -176,6 +185,12 @@ public sealed partial class MainViewModel : ObservableObject
                 i.Status = i.Search != null || i.CrfOverride != null || i.Mode == EncodeMode.Manual ? ItemStatus.Ready : ItemStatus.Waiting;
                 i.StatusDetail = "Interrupted in previous session — will restart";
             }
+            i.IsPaused = false;
+            if (!i.Status.IsFinal() && !File.Exists(i.SourcePath))
+            {
+                i.Status = ItemStatus.Skipped;
+                i.StatusDetail = "Source file not found (moved, renamed or deleted)";
+            }
             if (i.PartialPath != null)
             {
                 foreach (var f in new[] { i.PartialPath, OutputPlanner.AbAv1TempFile(i.PartialPath) })
@@ -211,6 +226,9 @@ public sealed partial class MainViewModel : ObservableObject
     public void Shutdown()
     {
         _processor?.Stop();
+        _saveTimer.Stop();
+        _statsTimer.Stop();
+        Log.Entry -= OnLogEntry;
         SaveNow();
         _library.Save();
         try { JsonFile.Save(AppPaths.Settings, Settings); } catch { }
@@ -239,9 +257,10 @@ public sealed partial class MainViewModel : ObservableObject
         if (t.AbAv1Path != null) Log.Info($"ab-av1 {t.AbAv1Version} — {t.AbAv1Path}");
         if (t.FfmpegPath != null) Log.Info($"FFmpeg {t.FfmpegVersion} — {t.FfmpegPath} (libsvtav1: {(t.FfmpegHasSvtAv1 ? "yes" : "NO")}, libvmaf: {(t.FfmpegHasLibVmaf ? "yes" : "NO")}, SVT-AV1 {t.SvtAv1Version ?? "?"})");
         if (t.FfprobePath != null) Log.Info($"FFprobe — {t.FfprobePath}");
-        Log.Info(t.HardwareAv1Encoders.Count > 0
-            ? $"Hardware AV1 encoders available: {string.Join(", ", t.HardwareAv1Encoders)}"
-            : "No hardware AV1 encoder available on this machine (SVT-AV1 on the CPU will be used)");
+        if (t.FfmpegPath != null)
+            Log.Info(t.HardwareAv1Encoders.Count > 0
+                ? $"Hardware AV1 encoders available: {string.Join(", ", t.HardwareAv1Encoders)}"
+                : "No hardware AV1 encoder available on this PC (software encoding will be used)");
         foreach (var n in t.Notes) Log.Warn(n);
         foreach (var p in t.Problems) Log.Error(p);
         foreach (var d in t.Av1Decoders) Log.Info($"AV1 decode: {d.Label} ✓");
@@ -294,6 +313,23 @@ public sealed partial class MainViewModel : ObservableObject
         AppSettings.QualityPresets.FirstOrDefault(x => x.Name == Settings.QualityPreset).Description ?? "";
 
     public IReadOnlyList<double> VmafChoices { get; } = [90, 91, 92, 93, 94, 95, 96, 97, 98, 99];
+
+    public IReadOnlyList<string> SampleChoices => Views.SampleOptions.Choices;
+
+    /// <summary>CRF search samples for files added from now on: "Auto" (ab-av1 decides; no --samples) or 1–10.</summary>
+    public string SamplesChoice
+    {
+        get => Views.SampleOptions.ToText(Settings.Samples);
+        set
+        {
+            var n = Views.SampleOptions.FromText(value);
+            if (Settings.Samples == n) return;
+            Settings.Samples = n;
+            SaveSettings();
+            Log.Info($"CRF search samples: {Views.SampleOptions.ToText(n)}");
+            Notify(nameof(SamplesChoice), nameof(CommandPreview), nameof(SelectedPreviewCommands), nameof(AbAv1AnalysisSummary));
+        }
+    }
 
     public double TargetVmaf
     {
@@ -492,40 +528,32 @@ public sealed partial class MainViewModel : ObservableObject
         return string.IsNullOrWhiteSpace(_filterText) || i.SourcePath.Contains(_filterText, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Commands that WOULD run for the selected queue file with the current settings (mode-aware).</summary>
+    /// <summary>The commands that will run for the selected queue file: its own mode and the settings it was queued with.</summary>
     public string SelectedPreviewCommands
     {
         get
         {
             var i = SelectedItem;
-            if (i is null) return "";
-            if (i.Mode == EncodeMode.Manual)
-            {
-                var saved = _encodeTarget;
-                _encodeTarget = i;
-                var mode = Settings.DefaultMode;
-                Settings.DefaultMode = EncodeMode.Manual;
-                try { return CommandPreview; }
-                finally { Settings.DefaultMode = mode; _encodeTarget = saved; }
-            }
-            return AbAv1PreviewFor(i);
+            if (i is null || i.Kind == ItemKind.Copy) return "";
+            var s = JobSettings(i);
+            return i.Mode == EncodeMode.Manual ? ManualPreviewFor(i, s) : AbAv1PreviewFor(i, s);
         }
     }
 
-    private string AbAv1PreviewFor(QueueItem i)
+    private string AbAv1PreviewFor(QueueItem i, AppSettings s)
     {
         {
             if (Tools.AbAv1Path is null) return "ab-av1 not found — see Settings › Tools.";
             try
             {
-                var temp = Path.Combine(string.IsNullOrWhiteSpace(Settings.TempFolder) ? AppPaths.Temp : Settings.TempFolder, "search-…");
-                var search = CommandLine.Format(Tools.AbAv1Path, AbAv1Commands.CrfSearch(Settings, Tools, i.Probe, i.SourcePath, temp));
+                var temp = Path.Combine(string.IsNullOrWhiteSpace(s.TempFolder) ? AppPaths.Temp : s.TempFolder, "search-…");
+                var search = CommandLine.Format(Tools.AbAv1Path, AbAv1Commands.CrfSearch(s, Tools, i.Probe, i.SourcePath, temp));
                 if (i.Probe is null) return search + "\n\n(encode command available after the file has been probed)";
                 var crf = i.EffectiveCrf;
-                var plan = OutputPlanner.Plan(Settings, i, crf);
-                var ext = OutputPlanner.ContainerExtension(Settings, i.SourcePath);
-                var streams = AbAv1Commands.PlanStreams(Settings, i.Probe, ext, i.AudioSelection, i.SubtitleSelection);
-                var enc = CommandLine.Format(Tools.AbAv1Path, AbAv1Commands.Encode(Settings, Tools, i.Probe, i.SourcePath,
+                var ext = OutputPlanner.ContainerExtension(s, i.SourcePath);
+                var plan = OutputPlanner.Plan(s, i, crf, ext);
+                var streams = AbAv1Commands.PlanStreams(s, i.Probe, ext, i.AudioSelection, i.SubtitleSelection);
+                var enc = CommandLine.Format(Tools.AbAv1Path, AbAv1Commands.Encode(s, Tools, i.Probe, i.SourcePath,
                     crf ?? double.NaN, plan.PartialPath, streams, null)).Replace("--crf NaN", "--crf <detected>");
                 var notes = streams.Warnings.Concat(streams.Blocker is null ? [] : [streams.Blocker])
                     .Concat(plan.SkipReason is null ? [] : [plan.SkipReason]);
@@ -573,17 +601,30 @@ public sealed partial class MainViewModel : ObservableObject
         if (dlg.ShowDialog() == true) DestinationFolder = dlg.FolderName;
     }
 
+    private readonly SemaphoreSlim _scanGate = new(1, 1);
+
+    /// <summary>Adds files/folders. Scans run one at a time (e.g. several drops in a row), off the UI thread;
+    /// the queue is updated once per scan, on the UI thread.</summary>
     public async Task AddPathsAsync(IEnumerable<string> paths)
     {
         var inputs = paths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
         if (inputs.Count == 0) return;
+        await _scanGate.WaitAsync();
         IsScanning = true;
         try
         {
             await AddPathsCoreAsync(inputs);
         }
-        catch (Exception ex) { Log.Error($"Scan failed: {ex.Message}"); }
-        finally { IsScanning = false; }
+        catch (Exception ex)
+        {
+            Log.Error($"Scan failed: {ex}");
+            InfoDialog?.Invoke("Could not add files", $"The files could not be added: {ex.Message}");
+        }
+        finally
+        {
+            IsScanning = false;
+            _scanGate.Release();
+        }
     }
 
     /// <summary>Fill in duration/resolution/codec columns. ffprobe is light; at most 2 run at a time.</summary>
@@ -643,7 +684,7 @@ public sealed partial class MainViewModel : ObservableObject
         {
             InfoDialog?.Invoke("Hardware encoder unavailable",
                 $"AB-AV1 hardware encoding is ON, but {Settings.HardwareEncoder} does not work on this machine.\n\n" +
-                "Turn \"GPU encoding\" OFF (Encode page, AB-AV1) to use SVT-AV1 on the CPU.");
+                "Turn GPU encoding off in the main window to use SVT-AV1 on the CPU.");
             return;
         }
         var errors = new List<string>();
@@ -657,6 +698,7 @@ public sealed partial class MainViewModel : ObservableObject
         errors = errors.Distinct().ToList();
         if (errors.Count > 0) { InfoDialog?.Invoke("Invalid settings", string.Join("\n", errors)); return; }
         if (anyManual && !ConfirmManualWarnings(targets.Where(i => i.Kind == ItemKind.Video && i.Mode == EncodeMode.Manual))) return;
+        if (mode != RunMode.AnalyzeOnly && !CheckOutputContainers(targets)) return;
         if (targets.Count == 0)
         {
             InfoDialog?.Invoke("Nothing to do", mode switch
@@ -706,7 +748,12 @@ public sealed partial class MainViewModel : ObservableObject
         var sw = Stopwatch.StartNew();
         try
         {
-            if (subset != null) await _processor.RunAsync(targets, mode);
+            if (subset != null)
+            {
+                // re-read the queue so files removed meanwhile are not processed
+                var ids = targets.Select(t => t.Id).ToHashSet();
+                await _processor.RunAsync(() => Ui.InvokeAsync<IReadOnlyList<QueueItem>>(() => Items.Where(i => ids.Contains(i.Id)).ToList()), mode);
+            }
             else await _processor.RunAsync(() => Ui.InvokeAsync<IReadOnlyList<QueueItem>>(() => Items.ToList()), mode);
         }
         catch (Exception ex) { Log.Error($"Queue error: {ex.Message}"); }
@@ -761,9 +808,9 @@ public sealed partial class MainViewModel : ObservableObject
     private void RemoveSelected()
     {
         var sel = SelectedItems.Where(i => !i.IsBusy).ToList();
-        foreach (var i in sel) Items.Remove(i);
-        _dirty = true;
-        RefreshStorage();
+        if (sel.Count == 0) return;
+        RemoveItems(sel);
+        Log.Info($"Removed {sel.Count} file(s) from the queue (files on disk untouched)");
     }
 
     private void RetrySelected()
@@ -796,9 +843,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void ClearFinished()
     {
-        foreach (var i in Items.Where(i => i.Status.IsFinal()).ToList()) Items.Remove(i);
-        _dirty = true;
-        RefreshStorage();
+        var done = Items.Where(i => !i.IsBusy && i.Status.IsFinal()).ToList();
+        if (done.Count == 0) return;
+        RemoveItems(done);
     }
 
     private void ChooseTracks()
@@ -955,15 +1002,30 @@ public sealed partial class MainViewModel : ObservableObject
 
     // =================================================================== log
 
+    private const int MaxLogEntries = 8000;
+    private readonly System.Collections.Concurrent.ConcurrentQueue<LogEntry> _pendingLog = new();
+    private int _logFlushScheduled;
+
+    /// <summary>Log lines arrive from tool-output threads; they are queued and shown in batches, so a chatty
+    /// encoder costs one UI update per burst instead of one per line.</summary>
     private void OnLogEntry(LogEntry e)
     {
         if (e.Level == LogLevel.Tool && !Settings.ShowToolOutput) return; // always in the log file anyway
-        Ui.Enqueue(() =>
-        {
-            LogEntries.Add(e);
-            if (LogEntries.Count > 8000) LogEntries.RemoveAt(0);
-            if (e.Level != LogLevel.Tool) LastLogLine = e.Display;
-        });
+        _pendingLog.Enqueue(e);
+        if (Interlocked.Exchange(ref _logFlushScheduled, 1) == 0) Ui.Enqueue(FlushLog);
+    }
+
+    private void FlushLog()
+    {
+        Interlocked.Exchange(ref _logFlushScheduled, 0);
+        var batch = new List<LogEntry>();
+        while (_pendingLog.TryDequeue(out var e)) batch.Add(e);
+        if (batch.Count == 0) return;
+        LogEntries.AddRange(batch);
+        // trim in chunks: one notification per ~1000 lines instead of shifting 8000 entries on every new line
+        if (LogEntries.Count > MaxLogEntries + 1000) LogEntries.RemoveFirst(LogEntries.Count - MaxLogEntries);
+        var last = batch.LastOrDefault(x => x.Level != LogLevel.Tool);
+        if (last != null) LastLogLine = last.Display;
     }
 
     private string _lastLogLine = "";

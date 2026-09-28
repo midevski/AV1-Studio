@@ -2,9 +2,8 @@ using System.Text;
 
 namespace AV1Studio.Util;
 
-/// <summary>Builds a human-readable, copy/paste-able command line for display.
-/// Processes are NEVER started from this string: they are spawned with
-/// ProcessStartInfo.ArgumentList, which escapes each argument individually.</summary>
+/// <summary>Builds a Windows command line (shown to the user and passed to CreateProcess). Each argument is
+/// quoted individually with the CommandLineToArgvW rules; no shell ever interprets it.</summary>
 public static class CommandLine
 {
     public static string Format(string exe, IEnumerable<string> args)

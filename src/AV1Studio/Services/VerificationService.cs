@@ -64,6 +64,11 @@ public static class VerificationService
             return r;
         }
 
+        // The real container, as read by FFprobe, must be the one chosen (the extension alone proves nothing).
+        var container = OutputContainers.FromExtension(Path.GetExtension(v.OutputPath));
+        if (!Step($"Container is {container.Label}", OutputContainers.Matches(container, outProbe, out var actualContainer), actualContainer))
+            return r;
+
         var video = outProbe.MainVideo;
         if (!Step("Video stream present", video != null, video is null ? "no video stream" : $"{video.Codec} {video.Width}×{video.Height}"))
             return r;
@@ -114,6 +119,16 @@ public static class VerificationService
         return r;
     }
 
+    /// <summary>Messages FFmpeg prints at error level while reading valid files; they are not decode errors.
+    /// (FFmpeg writes MP4 chapters as a QuickTime chapter track and then reports it as "not found" when reading.)</summary>
+    private static readonly string[] BenignDemuxerMessages =
+    [
+        "Referenced QT chapter track not found",
+    ];
+
+    internal static bool IsBenignDemuxerMessage(string line) =>
+        BenignDemuxerMessages.Any(m => line.Contains(m, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>Own decode check used when the installed ab-av1 has no --verify.</summary>
     private static async Task<(bool, string)> DecodeCheckAsync(ToolStatus tools, string file, CancellationToken ct)
     {
@@ -124,7 +139,8 @@ public static class VerificationService
                 "-hide_banner", "-nostdin", "-v", "error", "-xerror",
                 "-i", file, "-map", "0:v?", "-map", "0:a?", "-f", "null", "-",
             ], ct, TimeSpan.FromHours(12));
-            var firstErr = err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+            var firstErr = err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault(l => !IsBenignDemuxerMessage(l));
             return code == 0 && firstErr is null
                 ? (true, "decoded without errors")
                 : (false, firstErr ?? $"ffmpeg exit {code}");

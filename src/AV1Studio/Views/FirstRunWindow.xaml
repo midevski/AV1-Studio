@@ -14,7 +14,7 @@
                     <Image DockPanel.Dock="Left" Source="pack://application:,,,/AV1Studio;component/Assets/av1studio.png" Width="56" Height="56" Margin="0,0,14,0" />
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="Welcome to AV1 Studio" FontSize="22" FontWeight="Bold" />
-                        <TextBlock Text="A quick check of this PC. Nothing is changed or deleted — you decide everything." Foreground="{StaticResource SubtleText}" />
+                        <TextBlock Text="Let's check that everything needed for encoding is available." Foreground="{StaticResource SubtleText}" />
                     </StackPanel>
                 </DockPanel>
 
@@ -49,7 +49,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,8"
-                                   Text="FFmpeg + FFprobe (with libsvtav1 and libvmaf) are needed for encoding; ab-av1 is only needed for AB-AV1 automatic-quality mode. Downloads come directly from the official distributors (github.com/BtbN/FFmpeg-Builds, github.com/alexheretic/ab-av1) into this app's data folder." />
+                                   Text="FFmpeg and FFprobe are required. ab-av1 is required for AB-AV1 mode. Missing tools can be downloaded from their official sources." />
                         <WrapPanel>
                             <Button x:Name="DownloadButton" Content="Download missing tools" Click="OnDownload" Margin="0,0,8,6" Style="{StaticResource PrimaryButtonStyle}" />
                             <Button Content="I already have them — locate…" Click="OnLocate" Margin="0,0,8,6" />
@@ -89,10 +89,10 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="4 · TWO WAYS TO ENCODE" Style="{StaticResource CardTitle}" />
-                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"><Run Text="AB-AV1 · AUTOMATIC QUALITY — " FontWeight="SemiBold" /><Run Text="you pick a target quality (VMAF); the right CRF is found for every file automatically. Recommended for most people." /></TextBlock>
-                        <TextBlock TextWrapping="Wrap"><Run Text="MANUAL AV1 · FULL CONTROL — " FontWeight="SemiBold" /><Run Text="you choose the encoder, CRF/CQ, preset, filters, audio, subtitles and HDR handling yourself." /></TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,6"><Run Text="AB-AV1 · AUTOMATIC QUALITY — " FontWeight="SemiBold" /><Run Text="choose a quality target; the best CRF is found for each file automatically. Recommended." /></TextBlock>
+                        <TextBlock TextWrapping="Wrap"><Run Text="MANUAL AV1 · FULL CONTROL — " FontWeight="SemiBold" /><Run Text="choose the encoder, quality, preset and all other settings yourself." /></TextBlock>
                         <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                                   Text="Safe defaults: sources are never deleted unless you turn that on; outputs are verified before anything else happens; CPU usage is set to Auto (keeps the PC responsive)." />
+                                   Text="Source files are kept unless you enable deletion, and every output is verified. CPU usage is set to Auto at high priority; you can change this in Settings › Performance." />
                     </StackPanel>
                 </Border>
             </StackPanel>

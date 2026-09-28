@@ -16,7 +16,7 @@
                 </Border>
                 <Button DockPanel.Dock="Right" Content="Close" IsCancel="True" Width="100" Click="OnClose" />
                 <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,14,0"
-                           Text="Direct FFmpeg + AV1 encoder; ab-av1 is not used. Changes are saved automatically and apply to files you add from now on. Files already in the queue keep their settings (right-click › Apply current settings to selected)." />
+                           Text="Encodes directly with FFmpeg and the selected AV1 encoder. Changes are saved automatically and apply to files you add next." />
             </DockPanel>
         </Border>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -33,7 +33,7 @@
                             <TextBlock Text="Show" Style="{StaticResource Label}" />
                             <RadioButton Style="{StaticResource Segment}" Content="Basic" GroupName="level"
                                          IsChecked="{Binding ManualLevel, Converter={StaticResource Eq}, ConverterParameter=Basic}"
-                                         ToolTip="Only the essentials: encoder, quality, preset, bit depth, resolution, frame rate, audio, subtitles, output" />
+                                         ToolTip="Essential settings only" />
                             <RadioButton Style="{StaticResource Segment}" Content="Advanced" GroupName="level"
                                          IsChecked="{Binding ManualLevel, Converter={StaticResource Eq}, ConverterParameter=Advanced}"
                                          ToolTip="Adds filters, colour tags, keyframes, film grain, tiles and threading" />
@@ -51,7 +51,7 @@
                                 <TextBlock Text="Encoder" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding ManualEncoderChoices}" SelectedValuePath="Value" DisplayMemberPath="Label"
                                           SelectedValue="{Binding Manual.Encoder}" Width="330" HorizontalAlignment="Left"
-                                          ToolTip="Only encoders that passed a real test encode on this PC are listed. Settings › CPU &amp; Hardware explains the difference between software and hardware encoding." />
+                                          ToolTip="Encoders available on this PC. See Settings › CPU &amp; Hardware for details." />
                                 <v:HelpTip Text="{x:Static v:Tips.Hardware}" HorizontalAlignment="Left" />
                             </DockPanel>
                             <TextBlock Text="{Binding UnavailableEncodersText}" Style="{StaticResource Hint}" Margin="190,-6,0,10"
@@ -66,7 +66,7 @@
                                         IsSnapToTickEnabled="True" VerticalAlignment="Center" ToolTip="{Binding QualityHelp}" />
                             </DockPanel>
                             <TextBlock Style="{StaticResource Hint}" Margin="190,-6,0,10"
-                                       Text="Lower values generally produce higher quality and larger files; higher values produce smaller files and lower quality. No value is universally optimal — it depends on the source. Use Preview." />
+                                       Text="Lower values give higher quality and larger files. Use Preview to compare." />
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Preset" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding PresetChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.Preset}"
@@ -78,16 +78,16 @@
                                 <TextBlock Text="Bit depth" Style="{StaticResource FieldLabel}" />
                                 <RadioButton Content="10-bit (recommended)" GroupName="bd" Margin="0,0,16,0"
                                              IsChecked="{Binding Manual.BitDepth, Converter={StaticResource Eq}, ConverterParameter=Bit10}"
-                                             ToolTip="10-bit reduces banding and is required to keep HDR. Slightly slower; supported by all modern AV1 players." />
+                                             ToolTip="Reduces banding and is required for HDR. Supported by all modern AV1 players." />
                                 <RadioButton Content="8-bit" GroupName="bd" IsChecked="{Binding Manual.BitDepth, Converter={StaticResource Eq}, ConverterParameter=Bit8}"
-                                             ToolTip="Maximum compatibility with old devices. More prone to banding; not suitable for HDR." />
+                                             ToolTip="For older devices. More banding; not suitable for HDR." />
                                 <v:HelpTip Text="{x:Static v:Tips.BitDepth}" HorizontalAlignment="Left" />
                             </DockPanel>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Resolution" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding ResolutionChoices}" SelectedValuePath="Value" DisplayMemberPath="Label"
                                           SelectedValue="{Binding Manual.Resolution}" Width="200" HorizontalAlignment="Left"
-                                          ToolTip="Source keeps the original resolution (default). 1080p/1440p/4K only DOWNscale larger videos, keeping the aspect ratio. Custom sets an exact size." />
+                                          ToolTip="Source keeps the original resolution. 1080p, 1440p and 4K only reduce larger videos and keep the aspect ratio." />
                                 <StackPanel Orientation="Horizontal" Margin="10,0,0,0"
                                             Visibility="{Binding Manual.Resolution, Converter={StaticResource EnumVis}, ConverterParameter=Custom}">
                                     <TextBox Width="64" Text="{Binding Manual.CustomWidth}" /><TextBlock Text=" × " VerticalAlignment="Center" /><TextBox Width="64" Text="{Binding Manual.CustomHeight}" />
@@ -96,7 +96,7 @@
                             <DockPanel>
                                 <TextBlock Text="Frame rate" Style="{StaticResource FieldLabel}" />
                                 <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding Manual.Fps, UpdateSourceTrigger=LostFocus}"
-                                         ToolTip="Empty = keep the source frame rate (default). A value such as 24 or 24000/1001 converts the frame rate (drops/duplicates frames)." />
+                                         ToolTip="Leave empty to keep the original frame rate, or enter a value such as 24 or 24000/1001." />
                                 <TextBlock Text="empty = keep source" Style="{StaticResource Hint}" Margin="10,0,0,0" VerticalAlignment="Center" />
                             </DockPanel>
                         </StackPanel>
@@ -111,7 +111,7 @@
                                 <TextBlock Text="GPU ENCODER OPTIONS" Style="{StaticResource CardTitle}" Margin="0" />
                             </DockPanel>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,10"
-                                       Text="GPU usage cannot be set as a percentage — the video engine runs as fast as the options allow. These are the encoder's real options; empty = driver default." />
+                                       Text="Leave a field empty to use the encoder default." />
                             <StackPanel Visibility="{Binding ShowHardwareControls, Converter={StaticResource BoolVis}}">
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="B-frames" Style="{StaticResource FieldLabel}" />
@@ -158,34 +158,34 @@
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding FilterSummary}" Foreground="{StaticResource AccentText}" FontWeight="SemiBold" />
                                 <TextBlock Text="FILTERS &amp; PROCESSING" Style="{StaticResource CardTitle}" Margin="0" />
                             </DockPanel>
-                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,10" Text="All processing is off by default. Nothing is applied unless you choose it." />
+                            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,10" Text="No filters are applied unless you enable them." />
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Crop (w:h:x:y)" Style="{StaticResource FieldLabel}" />
                                 <TextBox Width="170" HorizontalAlignment="Left" Text="{Binding Manual.Crop, UpdateSourceTrigger=LostFocus}"
-                                         ToolTip="Removes black bars, e.g. 1920:800:0:140. Why: saves bits on bars. Trade-off: wrong values cut picture content." />
+                                         ToolTip="Removes black bars, e.g. 1920:800:0:140 (width:height:x:y)." />
                             </DockPanel>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Deinterlace" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding DeinterlaceChoices}" SelectedValuePath="Value" DisplayMemberPath="Label"
                                           SelectedValue="{Binding Manual.Deinterlace}" Width="240" HorizontalAlignment="Left"
-                                          ToolTip="bwdif deinterlacer for interlaced sources (old TV/DVD). 'Only interlaced frames' leaves progressive frames untouched. Trade-off: slightly softer motion; wrong use on progressive video wastes time." />
+                                          ToolTip="For interlaced sources such as TV recordings and DVDs." />
                             </DockPanel>
                             <CheckBox Content="Detelecine (inverse telecine for 3:2 pulldown film sources)" IsChecked="{Binding Manual.Detelecine}" Margin="190,0,0,8"
-                                      ToolTip="Restores 23.976 fps film from telecined 29.97 fps video (fieldmatch + decimate). Only for telecined NTSC sources; on other content it drops real frames." />
+                                      ToolTip="Restores 23.976 fps film from telecined 29.97 fps NTSC video. Use only on telecined sources." />
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Denoise" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding DenoiseChoices}" SelectedValuePath="Value" DisplayMemberPath="Label"
                                           SelectedValue="{Binding Manual.Denoise}" Width="240" HorizontalAlignment="Left"
-                                          ToolTip="hqdn3d spatial/temporal denoiser. Why: noise is expensive to encode, so denoising can shrink files. Trade-off: removes fine detail and film grain; stronger = softer." />
+                                          ToolTip="Reduces noise, which can make files smaller. Also removes fine detail and film grain." />
                             </DockPanel>
                             <CheckBox Content="Deblock (soften blocky compression artefacts in the source)" IsChecked="{Binding Manual.Deblock}" Margin="190,0,0,8"
-                                      ToolTip="Useful for low-quality, blocky sources. Trade-off: softens detail on clean sources." />
+                                      ToolTip="Smooths blocky, low-quality sources." />
                             <CheckBox Content="Grayscale (remove colour)" IsChecked="{Binding Manual.Grayscale}" Margin="190,0,0,8"
-                                      ToolTip="Converts to black &amp; white. Destructive: colour cannot be recovered." />
+                                      ToolTip="Converts the video to black and white." />
                             <DockPanel Visibility="{Binding ShowExpert, Converter={StaticResource BoolVis}}">
                                 <TextBlock Text="Custom FFmpeg filters" Style="{StaticResource FieldLabel}" />
                                 <TextBox Text="{Binding Manual.CustomFilter, UpdateSourceTrigger=LostFocus}" FontFamily="{StaticResource MonoFont}"
-                                         ToolTip="Appended to the video filter chain, e.g. unsharp=5:5:0.5. Invalid filters make the encode fail (reported in the queue)." />
+                                         ToolTip="Additional FFmpeg video filters, e.g. unsharp=5:5:0.5." />
                             </DockPanel>
                         </StackPanel>
                     </Border>
@@ -209,14 +209,14 @@
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="Bitrate" Style="{StaticResource FieldLabel}" />
                                     <TextBox Width="90" HorizontalAlignment="Left" Text="{Binding Manual.AudioBitrate, UpdateSourceTrigger=LostFocus}"
-                                             ToolTip="e.g. 160k (stereo Opus) or 384k (5.1). Empty = encoder default. Ignored by FLAC/PCM." />
+                                             ToolTip="For example 160k for stereo or 384k for 5.1. Leave empty for the default." />
                                 </DockPanel>
                                 <CheckBox Content="Downmix to stereo" IsChecked="{Binding Manual.DownmixToStereo}" Margin="190,0,0,8" />
                             </StackPanel>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Keep languages" Style="{StaticResource FieldLabel}" />
                                 <TextBox Text="{Binding Manual.AudioLanguages, UpdateSourceTrigger=LostFocus}"
-                                         ToolTip="Comma separated codes, e.g. eng,fre,und. Empty = keep all tracks. If nothing matches, all tracks are kept." />
+                                         ToolTip="Language codes separated by commas, e.g. eng,fre. Leave empty to keep all tracks." />
                             </DockPanel>
                             <Button Content="Choose tracks for the selected file individually (Ctrl+T) ›" Style="{StaticResource LinkButton}" HorizontalAlignment="Left"
                                     Command="{Binding ChooseTracksCommand}" />
@@ -237,14 +237,14 @@
                                 <TextBox Text="{Binding Manual.SubtitleLanguages, UpdateSourceTrigger=LostFocus}" ToolTip="e.g. eng,fre" />
                             </DockPanel>
                             <CheckBox Content="Forced subtitles only" IsChecked="{Binding Manual.ForcedSubtitlesOnly}" Margin="0,0,0,8"
-                                      ToolTip="Keep only tracks flagged 'forced' (e.g. translations of foreign-language scenes)." />
+                                      ToolTip="Keep only forced subtitle tracks." />
                             <DockPanel>
                                 <TextBlock Text="Default subtitle language" Style="{StaticResource FieldLabel}" />
                                 <TextBox Width="90" HorizontalAlignment="Left" Text="{Binding Manual.DefaultSubtitleLanguage, UpdateSourceTrigger=LostFocus}"
-                                         ToolTip="e.g. eng: that track is flagged as default, others are unflagged (forced flags are kept). Empty = keep the source flags." />
+                                         ToolTip="For example eng. Leave empty to keep the original default track." />
                             </DockPanel>
                             <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
-                                       Text="Language, title and forced/default flags are preserved. Image subtitles (PGS/VobSub) need MKV; MP4 converts text subtitles to mov_text." />
+                                       Text="Languages, titles and flags are kept. Image subtitles (PGS, VobSub) require MKV." />
                         </StackPanel>
                     </Border>
 
@@ -256,27 +256,27 @@
                                        Visibility="{Binding EncodeTarget.ColorSummary, Converter={StaticResource NotEmptyVis}}" />
                             <RadioButton Content="Preserve source colour &amp; HDR metadata (recommended)" GroupName="hdr" Margin="0,0,0,4"
                                          IsChecked="{Binding Manual.Hdr, Converter={StaticResource Eq}, ConverterParameter=Preserve}"
-                                         ToolTip="Colour primaries, transfer, matrix and range are copied from the source. With SVT-AV1, HDR10 mastering-display and content-light metadata are carried over too." />
+                                         ToolTip="Keeps the original colour information and HDR10 metadata." />
                             <RadioButton Content="Tone-map HDR to SDR (destructive)" GroupName="hdr" Margin="0,0,0,8"
                                          IsChecked="{Binding Manual.Hdr, Converter={StaticResource Eq}, ConverterParameter=ToneMapToSdr}"
-                                         ToolTip="Converts HDR to BT.709 SDR for non-HDR displays (zscale + tonemap). This operation converts colours and permanently discards HDR information. SDR sources are unaffected." />
+                                         ToolTip="Converts HDR video to SDR for non-HDR displays. HDR information is permanently removed. SDR videos are not affected." />
                             <StackPanel Visibility="{Binding ShowAdvanced, Converter={StaticResource BoolVis}}">
                                 <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
-                                           Text="Tag overrides only change metadata (how players interpret colours), not the pixels. Use them to fix wrongly tagged sources." />
+                                           Text="These settings only change the colour tags, not the picture. Use them to correct wrongly tagged sources." />
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="Colour range" Style="{StaticResource FieldLabel}" />
                                     <ComboBox ItemsSource="{Binding RangeChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.ColorRange}" Width="240" HorizontalAlignment="Left"
-                                              ToolTip="Limited (TV) is standard for video; Full (PC) for screen captures. Wrong values crush or wash out blacks." />
+                                              ToolTip="Limited (TV) is standard for video; Full (PC) for screen recordings." />
                                 </DockPanel>
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="Colour primaries" Style="{StaticResource FieldLabel}" />
                                     <ComboBox ItemsSource="{Binding PrimariesChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.ColorPrimaries}" Width="240" HorizontalAlignment="Left"
-                                              ToolTip="Which colour gamut the pixels use (BT.709 for HD, BT.2020 for UHD/HDR). Wrong values shift colours." />
+                                              ToolTip="BT.709 for HD, BT.2020 for UHD/HDR." />
                                 </DockPanel>
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="Transfer characteristics" Style="{StaticResource FieldLabel}" />
                                     <ComboBox ItemsSource="{Binding TransferChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.ColorTransfer}" Width="240" HorizontalAlignment="Left"
-                                              ToolTip="Brightness curve: BT.709 (SDR), PQ (HDR10) or HLG. Wrong values make the picture far too dark or bright." />
+                                              ToolTip="BT.709 (SDR), PQ (HDR10) or HLG." />
                                 </DockPanel>
                                 <DockPanel>
                                     <TextBlock Text="Matrix coefficients" Style="{StaticResource FieldLabel}" />
@@ -299,27 +299,27 @@
                             </DockPanel>
                             <StackPanel Visibility="{Binding IsSvtEncoder, Converter={StaticResource BoolVis}}">
                                 <CheckBox Content="Scene-change detection" IsChecked="{Binding Manual.SceneDetection}" Margin="190,0,0,8"
-                                          ToolTip="Inserts keyframes at scene cuts. Why: better quality right after cuts and better seeking. Trade-off: slightly slower analysis." />
+                                          ToolTip="Places keyframes at scene cuts for better quality and seeking." />
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="Film grain synthesis (0–50)" Style="{StaticResource FieldLabel}" />
                                     <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding Manual.FilmGrain}"
-                                             ToolTip="SVT-AV1 removes grain before encoding and re-synthesises it on playback. Why: grain is very expensive to encode, so this can save a lot for grainy films. Trade-off: synthetic grain differs from the original; 0 = off. Typical values: 4–15." />
+                                             ToolTip="Removes film grain before encoding and recreates it during playback, which saves a lot of space on grainy films. 0 = off; typical values 4–15." />
                                     <CheckBox Content="Denoise before grain analysis" IsChecked="{Binding Manual.FilmGrainDenoise}" Margin="12,0,0,0" VerticalAlignment="Center"
-                                              ToolTip="Also encode the denoised picture (film-grain-denoise=1). Saves more bits but can soften detail." />
+                                              ToolTip="Encodes the denoised picture. Saves more space but can soften detail." />
                                 </DockPanel>
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="Fast decode (0–2)" Style="{StaticResource FieldLabel}" />
                                     <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding Manual.FastDecode}"
-                                             ToolTip="Makes playback easier for weak devices (TVs, phones). Trade-off: slightly lower compression efficiency. 0 = off." />
+                                             ToolTip="Easier playback on low-power devices, with slightly larger files. 0 = off." />
                                 </DockPanel>
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="Tune" Style="{StaticResource FieldLabel}" />
                                     <ComboBox ItemsSource="{Binding TuneChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.Tune}" Width="240" HorizontalAlignment="Left"
-                                              ToolTip="Visual quality (VQ) optimises for how it looks; PSNR optimises for a mathematical metric. Default = encoder default." />
+                                              ToolTip="Visual quality (VQ) optimises for perceived quality; PSNR for measured quality." />
                                 </DockPanel>
                                 <DockPanel Style="{StaticResource Row}">
                                     <TextBlock Text="Tiles (log2 columns / rows)" Style="{StaticResource FieldLabel}" />
-                                    <TextBox Width="50" Text="{Binding Manual.TileColumns}" ToolTip="Splits frames into independent tiles. Why: faster multi-threaded decoding of 4K. Trade-off: slightly larger files. 0 = encoder decides." />
+                                    <TextBox Width="50" Text="{Binding Manual.TileColumns}" ToolTip="Faster decoding of 4K video, with slightly larger files. 0 = automatic." />
                                     <TextBlock Text=" / " VerticalAlignment="Center" />
                                     <TextBox Width="50" HorizontalAlignment="Left" Text="{Binding Manual.TileRows}" ToolTip="Tile rows (log2). 0 = encoder decides." />
                                 </DockPanel>
@@ -332,7 +332,7 @@
                             <DockPanel>
                                 <TextBlock Text="Threads" Style="{StaticResource FieldLabel}" />
                                 <TextBox Width="60" HorizontalAlignment="Left" Text="{Binding Manual.Threads}"
-                                         ToolTip="Limit the encoder's threads (SVT-AV1 lp). Why: keep CPU for other work. Trade-off: slower encoding. 0 = use all." />
+                                         ToolTip="Maximum number of encoder threads. 0 = automatic." />
                             </DockPanel>
                         </StackPanel>
                     </Border>
@@ -347,10 +347,10 @@
                             </StackPanel>
                             <TextBox Text="{Binding Manual.SvtParams, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True" Height="60" TextWrapping="Wrap" FontFamily="{StaticResource MonoFont}"
                                      Visibility="{Binding IsSvtEncoder, Converter={StaticResource BoolVis}}"
-                                     ToolTip="key=value pairs (space, colon or newline separated), e.g. enable-overlays=1 variance-boost-strength=2. crf, preset, keyint and scd are set by the controls above." />
+                                     ToolTip="key=value pairs, e.g. enable-overlays=1 variance-boost-strength=2." />
                             <TextBlock Text="Extra FFmpeg output options" Margin="0,10,0,4" />
                             <TextBox Text="{Binding Manual.ExtraFfmpegArgs, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True" Height="60" FontFamily="{StaticResource MonoFont}"
-                                     ToolTip="One name=value per line, e.g. metadata=comment=AV1. Options controlled by this page (codec, crf, preset, pix_fmt, filters, map) are rejected." />
+                                     ToolTip="One name=value pair per line, e.g. metadata=comment=AV1." />
                         </StackPanel>
                     </Border>
 
@@ -360,9 +360,9 @@
                             <TextBlock Text="OUTPUT" Style="{StaticResource CardTitle}" />
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Container" Style="{StaticResource FieldLabel}" />
-                                <ComboBox ItemsSource="{Binding ContainerChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.Container}"
-                                          Width="240" HorizontalAlignment="Left"
-                                          ToolTip="MKV holds every audio/subtitle format, chapters and attachments. MP4 is more widely supported by devices but cannot hold image subtitles, TrueHD/DTS or attachments (the app warns and converts or drops them)." />
+                                <ComboBox ItemsSource="{Binding OutputContainerChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding OutputContainer}"
+                                          Width="240" HorizontalAlignment="Left" ToolTip="{x:Static v:Tips.OutputContainer}" />
+                                <v:HelpTip Text="{x:Static v:Tips.OutputContainer}" HorizontalAlignment="Left" />
                             </DockPanel>
                             <WrapPanel Margin="190,0,0,6">
                                 <CheckBox Content="Chapters" IsChecked="{Binding Manual.KeepChapters}" Margin="0,0,14,0" />
@@ -370,7 +370,7 @@
                                 <CheckBox Content="Attachments (MKV)" IsChecked="{Binding Manual.KeepAttachments}" />
                             </WrapPanel>
                             <TextBlock Margin="0,4,0,4"><Run Text="Destination &amp; naming: " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding OutputSummary, Mode=OneWay}" /></TextBlock>
-                            <Button Content="Change naming, collisions and disk-space rules in Settings › Output &amp; folders ›" Style="{StaticResource LinkButton}" HorizontalAlignment="Left"
+                            <Button Content="File names and existing files: Settings › Output &amp; folders ›" Style="{StaticResource LinkButton}" HorizontalAlignment="Left"
                                     Command="{Binding OpenSettingsCommand}" />
                         </StackPanel>
                     </Border>
@@ -401,7 +401,7 @@
                             <TextBox Width="60" Text="{Binding PreviewSeconds}" ToolTip="Length of the sample, taken about a third into the file" />
                             <Button Content="Cancel" Command="{Binding CancelPreviewCommand}" DockPanel.Dock="Right" Margin="6,0,0,0" />
                             <Button Command="{Binding EncodePreviewCommand}" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" Padding="12,4"
-                                    ToolTip="Encode a short sample of the selected file with exactly the current Manual AV1 settings">
+                                    ToolTip="Encode a short sample with the current Manual AV1 settings">
                                 <TextBlock Text="Encode preview" />
                             </Button>
                         </DockPanel>
@@ -440,7 +440,7 @@
                             <TextBlock Grid.Row="4" Text="Preset / encoder" Style="{StaticResource Label}" />
                             <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource Value}"><Run Text="{Binding Preset, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Encoder, Mode=OneWay}" /></TextBlock>
                             <TextBlock Grid.Row="5" Text="Full file (estimate)" Style="{StaticResource Label}"
-                                       ToolTip="Extrapolated from the sample. Real size depends on the content of the whole file." />
+                                       ToolTip="Estimated from the sample." />
                             <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding EstimatedFullSize, Converter={StaticResource Bytes}}" Style="{StaticResource Value}" />
                         </Grid>
                     </StackPanel>
@@ -453,7 +453,7 @@
                         </DockPanel>
                         <TextBox Style="{StaticResource MonoBox}" Text="{Binding CommandPreview, Mode=OneWay}" MaxHeight="320" />
                         <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
-                                   Text="Updates live with your settings. Arguments are passed individually to the process (never through a shell)." />
+                                   Text="Updates as you change the settings." />
                     </StackPanel>
                 </Border>
                 </StackPanel>

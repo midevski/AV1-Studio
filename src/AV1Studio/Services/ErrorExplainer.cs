@@ -8,6 +8,9 @@ public static class ErrorExplainer
 {
     private static readonly (string[] Patterns, string Why, string Fix)[] Rules =
     [
+        (["needs a CRF first"],
+            "In AB-AV1 mode the CRF is found by the CRF search, which has not run for this file yet.",
+            "Select the file and choose Analyze (right-click › Analyze selected), or enter a CRF override in the file details."),
         (["not found (moved or deleted", "Source file not found"],
             "The file was moved, renamed or deleted, or the drive holding it is disconnected.",
             "Check that the file still exists and the drive is connected, then remove it from the queue and add it again."),
@@ -37,7 +40,7 @@ public static class ErrorExplainer
             "Close programs using the file (players, antivirus scans), check folder permissions, or choose another destination folder."),
         (["already exists", "appeared during encoding"],
             "A file with the output name already exists; it is never overwritten without your permission.",
-            "Change the naming settings (suffix/template), pick another destination, or allow overwriting existing outputs in Settings › Storage."),
+            "Change the naming settings (suffix/template), pick another destination, or choose \"Replace\" in Settings › Output & folders."),
         (["Verification failed: Duration"],
             "The encoded file's length does not match the source — the encode stopped early or the source has timing problems.",
             "Check the source plays to the end. Remove filters that change timing (fps, custom). The source was kept."),
@@ -46,7 +49,7 @@ public static class ErrorExplainer
             "Use the MKV container, or change the audio/subtitle settings. The source was kept."),
         (["Verification failed: Full decode", "Verification failed: FFprobe", "Verification failed: Video"],
             "The encoded file is unreadable or damaged.",
-            "Retry the file. If it fails again, try another preset or encoder and check the Logs page. The source was kept."),
+            "Retry the file. If it fails again, try another preset or encoder and check the Log tab. The source file was kept."),
         (["Verification failed: Source unchanged"],
             "The source file changed while it was being encoded (modified, replaced or moved).",
             "Make sure nothing else writes to the library during encoding, then retry."),
@@ -55,7 +58,7 @@ public static class ErrorExplainer
             "Lower the target VMAF, raise 'Max encoded size %', or use Manual AV1 mode for this file."),
         (["timed out"],
             "A tool did not respond in time.",
-            "Retry; if it persists, check the file and the Logs page."),
+            "Retry; if it persists, check the file and the Log tab."),
     ];
 
     public static ErrorExplanation Explain(string? message)
@@ -66,6 +69,6 @@ public static class ErrorExplainer
                 return new ErrorExplanation(why, fix);
         return new ErrorExplanation(
             "The encoding tool reported an error that the application does not recognise.",
-            "Open the Logs page (and enable 'Show tool output') for the full FFmpeg / ab-av1 output. The exact command is in the Queue details and can be copied to reproduce the problem.");
+            "See the Log tab (enable \"Raw tool output\") for the full FFmpeg and ab-av1 output. The command is shown in the file details.");
     }
 }

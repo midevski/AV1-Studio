@@ -12,11 +12,9 @@ namespace AV1Studio.Services;
 public sealed record ResourcePlan(ProcessPriorityClass Priority, ulong? AffinityMask, int Threads, int LogicalProcessors, string Description);
 
 /// <summary>
-/// Turns a CPU usage choice (Auto / Maximum / Balanced / Low / Custom) into a concrete plan for the
-/// detected CPU. There is deliberately no "CPU %" slider: a percentage is not a reliable way to steer an
-/// encoder. Instead the number of logical processors the encoder may use (affinity) and the Windows
-/// scheduling priority are controlled — both are enforced by the OS for every process in the tree.
-/// Realtime priority is never used.
+/// Turns a CPU usage choice into a concrete plan for the detected CPU: the mode decides how many logical
+/// processors the encoder may use (affinity), the priority is chosen separately. Both are enforced by Windows
+/// for every process in the tree. Realtime priority is never used.
 /// </summary>
 public static class ResourcePlanner
 {
@@ -26,14 +24,15 @@ public static class ResourcePlanner
         // Affinity masks address processor group 0 only (max 64 logical processors).
         bool canMask = logical <= 64;
 
-        (int threads, ProcessPriorityClass prio, string label) = p.Mode switch
+        (int threads, string label) = p.Mode switch
         {
-            CpuUsageMode.Maximum => (logical, ProcessPriorityClass.Normal, "Maximum"),
-            CpuUsageMode.Balanced => (Math.Max(1, (int)Math.Round(logical * 0.75)), ProcessPriorityClass.BelowNormal, "Balanced"),
-            CpuUsageMode.Low => (Math.Max(1, logical / 2), ProcessPriorityClass.Idle, "Low"),
-            CpuUsageMode.Custom => (p.Threads <= 0 ? logical : Math.Clamp(p.Threads, 1, logical), ToClass(p.Priority), "Custom"),
-            _ => (logical - AutoReserve(logical), ProcessPriorityClass.BelowNormal, "Auto"),
+            CpuUsageMode.Maximum => (logical, "Maximum"),
+            CpuUsageMode.Balanced => (Math.Max(1, (int)Math.Round(logical * 0.75)), "Balanced"),
+            CpuUsageMode.Low => (Math.Max(1, logical / 2), "Low"),
+            CpuUsageMode.Custom => (p.Threads <= 0 ? logical : Math.Clamp(p.Threads, 1, logical), "Custom"),
+            _ => (logical - AutoReserve(logical), "Auto"),
         };
+        var prio = ToClass(p.Priority);
 
         ulong? mask = null;
         if (canMask)
@@ -57,6 +56,15 @@ public static class ResourcePlanner
                       (!canMask && threads < logical ? " (more than 64 logical processors: thread limit not enforced)" : "");
         return new ResourcePlan(prio, mask, threads, logical, desc);
     }
+
+    /// <summary>The priority that matches a mode; applied when the user switches modes (and still editable).</summary>
+    public static ProcessPriority SuggestedPriority(CpuUsageMode mode) => mode switch
+    {
+        CpuUsageMode.Maximum => ProcessPriority.High,
+        CpuUsageMode.Balanced => ProcessPriority.BelowNormal,
+        CpuUsageMode.Low => ProcessPriority.Idle,
+        _ => ProcessPriority.Normal,
+    };
 
     /// <summary>Auto keeps a little CPU for Windows, the UI and background tasks; scales with the CPU size.</summary>
     public static int AutoReserve(int logical) => logical switch

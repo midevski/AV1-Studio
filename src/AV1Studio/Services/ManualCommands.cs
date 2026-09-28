@@ -330,9 +330,9 @@ public static class ManualCommands
         a.AddRange(AbAv1Commands.ToFfmpegArgs(streams.EncArgs));
 
         // ---- container ----
-        var e = ext.ToLowerInvariant();
-        if (e is "mkv" or "webm") a.Add("-dn");
-        if (e == "mp4") { a.Add("-movflags"); a.Add("+faststart"); }
+        var container = OutputContainers.FromExtension(ext);
+        if (container.Muxer is "matroska" or "webm") a.Add("-dn");
+        a.AddRange(container.FfmpegArgs);
         a.Add("-max_muxing_queue_size"); a.Add("4096");
 
         foreach (var (name, value) in ParseExtraArgs(m.ExtraFfmpegArgs).Where(x => !ReservedFfmpeg.Contains(x.Name)))
@@ -342,7 +342,7 @@ public static class ManualCommands
         }
 
         if (progressFile != null) { a.Add("-progress"); a.Add(progressFile); }
-        a.Add("-f"); a.Add(e switch { "mp4" => "mp4", "webm" => "webm", _ => "matroska" });
+        a.Add("-f"); a.Add(container.Muxer);
         a.Add(output);
         return a;
     }

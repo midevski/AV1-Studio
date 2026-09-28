@@ -93,7 +93,11 @@ public static class FfprobeService
             info.DurationSeconds = Dbl(fmt, "duration");
             info.SizeBytes = (long?)Dbl(fmt, "size");
             info.FormatName = Str(fmt, "format_name");
-            if (fmt.TryGetProperty("tags", out var tags)) info.Title = Tag(tags, "title");
+            if (fmt.TryGetProperty("tags", out var tags))
+            {
+                info.Title = Tag(tags, "title");
+                info.MajorBrand = Tag(tags, "major_brand");
+            }
         }
         if (root.TryGetProperty("chapters", out var ch) && ch.ValueKind == JsonValueKind.Array)
             info.ChapterCount = ch.GetArrayLength();

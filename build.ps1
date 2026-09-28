@@ -5,7 +5,7 @@
   Publish without running the test suite.
 .EXAMPLE
   .\build.ps1
-  $env:AV1STUDIO_TEST_TOOLS = "C:\tools\ab-av1"; .\build.ps1   # also runs the end-to-end tests
+  $env:AV1STUDIO_TEST_TOOLS = "<folder with ab-av1.exe, ffmpeg.exe, ffprobe.exe>"; .\build.ps1   # also runs the end-to-end tests
 #>
 param([switch]$SkipTests)
 $ErrorActionPreference = "Stop"

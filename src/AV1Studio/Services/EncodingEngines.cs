@@ -54,13 +54,13 @@ public sealed class ManualAv1Engine(ManualSettings m, AppSettings s, ToolStatus 
     public string PresetText => m.Preset;
     public bool VerifiesDecode => false;
     public bool IsHardware => ManualCommands.Spec(m.Encoder).IsHardware;
-    public string ContainerExtension(string sourcePath) => OutputPlanner.ContainerExtension(m.Container, sourcePath);
+    public string ContainerExtension(string sourcePath) => OutputPlanner.ContainerExtension(s.Container, sourcePath);
 
     public StreamPlan PlanStreams(QueueItem item, ProbeInfo probe) =>
         AbAv1Commands.PlanStreams(TrackOptions.FromManual(m), probe, ContainerExtension(item.SourcePath), item.AudioSelection, item.SubtitleSelection);
 
     public Task<EncodeOutcome> EncodeAsync(QueueItem item, OutputPlan output, StreamPlan streams, double quality, CancellationToken ct) =>
-        ManualEncodeRunner.RunAsync(item, m, s, tools, output.PartialPath, OutputPlanner.ContainerExtension(m.Container, item.SourcePath),
+        ManualEncodeRunner.RunAsync(item, m, s, tools, output.PartialPath, ContainerExtension(item.SourcePath),
             streams, quality, ct);
 }
 

@@ -74,7 +74,16 @@ public partial class SettingsWindow : Window
 
     private void OnCpuChanged(object sender, RoutedEventArgs e)
     {
-        if (IsLoaded) Dispatcher.BeginInvoke(UpdateCpuPlans, System.Windows.Threading.DispatcherPriority.Background);
+        if (!IsLoaded) return;
+        // Switching the CPU usage mode selects the matching priority (it can still be changed afterwards).
+        if (e.OriginalSource is ComboBox { Tag: "mode", DataContext: CpuProfile profile } && e is SelectionChangedEventArgs { AddedItems.Count: > 0 })
+        {
+            profile.Priority = ResourcePlanner.SuggestedPriority(profile.Mode);
+            if (((ComboBox)e.OriginalSource).Parent is DockPanel row && row.Parent is StackPanel panel)
+                foreach (var cb in panel.Children.OfType<DockPanel>().SelectMany(d => d.Children.OfType<ComboBox>()))
+                    cb.GetBindingExpression(System.Windows.Controls.Primitives.Selector.SelectedItemProperty)?.UpdateTarget();
+        }
+        Dispatcher.BeginInvoke(UpdateCpuPlans, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     /// <summary>Shows exactly what each CPU profile resolves to on this PC.</summary>
@@ -239,8 +248,12 @@ public partial class SettingsWindow : Window
 
     private void OnClearCache(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(Window.GetWindow(this)!, "Forget all cached AB-AV1 CRF search results? Files will be re-analysed when encoded.",
+        if (Vm is null) return;
+        if (MessageBox.Show(this,
+                $"Clear all saved CRF search results?\n\nThis also deletes ab-av1's sample cache ({Util.Fmt.Bytes(AbAv1Cache.SizeBytes())}). " +
+                "Queued AB-AV1 files will run a new CRF search. Your videos are not affected.",
                 "Clear analysis cache", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-        Vm?.ClearAnalysisCache();
+        var summary = Vm.ClearAnalysisCache();
+        MessageBox.Show(this, summary, "Clear analysis cache", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 }

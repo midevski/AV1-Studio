@@ -142,6 +142,7 @@ public sealed partial class MainViewModel
         {
             if (i.Status.IsActive() || i.Status.IsDone()) continue;
             var s = JobSettings(i);
+            i.OutputContainer = i.Kind == ItemKind.Copy ? "" : OutputContainers.Resolve(s.Container, i.SourcePath).Label;
             if (i.Kind == ItemKind.Copy)
             {
                 i.EncoderText = "Copy (unchanged)";

@@ -178,7 +178,8 @@ public sealed class ManualSettings : ObservableObject
     public bool KeepAttachments { get => _keepAttachments; set => Set(ref _keepAttachments, value); }
 
     // ---------- output ----------
-    private ContainerFormat _container = ContainerFormat.SameAsSource;
+    // Legacy: the output container is AppSettings.Container (shared by both modes); kept for old settings files.
+    private ContainerFormat _container = ContainerFormat.Mkv;
     public ContainerFormat Container { get => _container; set => Set(ref _container, value); }
 
     // ---------- preview ----------

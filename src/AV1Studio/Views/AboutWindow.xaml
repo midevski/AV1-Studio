@@ -25,7 +25,7 @@
                             <Hyperlink NavigateUri="https://github.com/alexheretic/ab-av1" RequestNavigate="OnLink">ab-av1</Hyperlink> (MIT)
                         </TextBlock>
                         <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,16"
-                                   Text="AV1 Studio does not include these tools. They are detected on your PC or downloaded on request from their official distributors, and they remain under their own licenses. VMAF is by Netflix (BSD-2-Clause-Patent)." />
+                                   Text="These tools are not included with AV1 Studio. They are installed separately or downloaded from their official sources and are covered by their own licenses. VMAF by Netflix (BSD-2-Clause-Patent)." />
                         <TextBlock Text="LICENSE" Style="{StaticResource CardTitle}" />
                         <TextBlock TextWrapping="Wrap" Margin="0,0,0,16">
                             AV1 Studio is open-source software released under the MIT License. See the LICENSE file in the
@@ -35,7 +35,7 @@
                         <TextBlock Text="{Binding SystemInfo.Summary}" TextWrapping="Wrap" Margin="0,0,0,4" />
                         <TextBlock Text="{Binding ToolsSummary}" TextWrapping="Wrap" Foreground="{StaticResource SubtleText}" Margin="0,0,0,16" />
                         <TextBlock Text="DATA FOLDER" Style="{StaticResource CardTitle}" />
-                        <TextBlock Style="{StaticResource Hint}" Text="Settings, queue, logs and downloaded tools. Use the button to open it; it is not shown here so screenshots don't reveal your user name." />
+                        <TextBlock Style="{StaticResource Hint}" Text="Settings, queue, logs and downloaded tools." />
                         <Button Content="Open data folder" Click="OnDataFolder" HorizontalAlignment="Left" Margin="0,6,0,0" />
                     </StackPanel>
                 </ScrollViewer>
@@ -43,7 +43,7 @@
             <TabItem Header="Diagnostics">
                 <DockPanel Margin="8">
                     <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="0,0,0,8"
-                               Text="Attach this report when you report a problem. It describes your system, tools and settings; user names, computer names and personal paths are removed. Review it before sharing." />
+                               Text="Attach this report when reporting a problem. It lists your system, tools and settings, without your user name, computer name or personal folders." />
                     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
                         <Button Content="Copy to clipboard" Click="OnCopy" Margin="0,0,8,0" />
                         <Button Content="Save as…" Command="{Binding ExportDiagnosticsCommand}" Margin="0,0,8,0" />

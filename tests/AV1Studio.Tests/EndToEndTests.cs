@@ -38,7 +38,6 @@ public class EndToEndTests : IDisposable
         SampleDuration = "2s",
         MaxEncodedPercent = 95,
         TargetVmaf = 90,
-        Priority = EncoderPriority.BelowNormal,
     };
 
     /// <summary>Movie with eng+fre audio, eng subtitle, 2 chapters, title — in an awkward path.</summary>

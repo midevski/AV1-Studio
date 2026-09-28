@@ -137,31 +137,54 @@ public sealed partial class MainViewModel
 
     private void InitLogCommands()
     {
-        CopyLogCommand = new RelayCommand(() =>
+        CopyLogCommand = new RelayCommand(CopyLogAsync);
+        ExportLogCommand = new RelayCommand(SaveLog);
+    }
+
+    /// <summary>Copy Logs: the visible entries, with the user name and profile folder replaced by placeholders.</summary>
+    private async void CopyLogAsync()
+    {
+        try
         {
             var text = VisibleLogText();
-            if (text.Length > 0) Clipboard.SetText(text);
-        });
-        ExportLogCommand = new RelayCommand(() =>
-        {
-            var path = SaveFileDialog?.Invoke("Export log", $"av1-studio-log_{DateTime.Now:yyyyMMdd_HHmm}.txt");
-            if (path is null) return;
-            try
+            if (text.Length == 0) return;
+            if (await ClipboardHelper.TrySetTextAsync(Diagnostics.Redact(text)))
             {
-                // Export the complete log file of today plus the visible entries' filter context.
-                var sb = new StringBuilder();
-                if (File.Exists(Log.CurrentFile))
-                {
-                    using var fs = new FileStream(Log.CurrentFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    using var sr = new StreamReader(fs);
-                    sb.Append(sr.ReadToEnd());
-                }
-                else sb.Append(VisibleLogText());
-                File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
-                Log.Info($"Log exported to {path}");
+                Log.Info("Log copied to the clipboard");
+                return;
             }
-            catch (Exception ex) { Log.Error($"Could not export the log: {ex.Message}"); }
-        });
+            if (ConfirmDialog?.Invoke("Copy failed",
+                    "The clipboard is currently in use by another application.\n\nSave the log to a file instead?") == true)
+                SaveLog();
+        }
+        catch (Exception ex) { Log.Error($"Could not copy the log: {ex}"); }
+    }
+
+    /// <summary>Save Logs: today's complete log file (or the visible entries), ready to attach to a bug report.</summary>
+    private void SaveLog()
+    {
+        var path = SaveFileDialog?.Invoke("Save log", $"av1-studio-log_{DateTime.Now:yyyyMMdd_HHmm}.txt");
+        if (path is null) return;
+        try
+        {
+            Log.Flush();
+            string text;
+            if (File.Exists(Log.CurrentFile))
+            {
+                using var fs = new FileStream(Log.CurrentFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var sr = new StreamReader(fs);
+                text = sr.ReadToEnd();
+            }
+            else text = VisibleLogText();
+            var header = $"{AppInfo.NameAndVersion} log — user name and profile folder replaced by placeholders{Environment.NewLine}{Environment.NewLine}";
+            File.WriteAllText(path, header + Diagnostics.Redact(text), Encoding.UTF8);
+            Log.Info($"Log saved to {path}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Could not save the log: {ex.Message}");
+            InfoDialog?.Invoke("Save failed", $"The log could not be saved: {ex.Message}");
+        }
     }
 
     private string VisibleLogText() =>
@@ -192,6 +215,15 @@ public sealed partial class MainViewModel
     public string DecoderSummary => Tools.Av1Decoders.Count == 0 ? "No AV1 decoder test result yet"
         : string.Join(" · ", Tools.Av1Decoders.Select(d => d.Label + (d.Hardware ? " (hardware)" : "")));
 
+    public string HardwareEncoderSummary
+    {
+        get
+        {
+            var hw = Tools.EncoderAvailability.Where(e => e.IsHardware && e.Available).Select(e => e.Name).ToList();
+            return hw.Count > 0 ? string.Join(", ", hw) + " (detected automatically)" : "None detected — software encoding is used";
+        }
+    }
+
     public string EncoderSummary => Tools.ManualEncoders.Count == 0 ? "No AV1 encoder available"
         : string.Join(" · ", Tools.ManualEncoders.Select(e => ManualCommands.Spec(e).Name));
 
@@ -212,7 +244,7 @@ public sealed partial class MainViewModel
             nameof(QualityPresetDescription), nameof(TargetVmaf), nameof(SelectedPreset), nameof(DeleteSource), nameof(ConcurrentJobs),
             nameof(SelectedPreviewCommands), nameof(AbAv1AudioSummary), nameof(AbAv1SubtitleSummary), nameof(AbAv1AnalysisSummary),
             nameof(OutputSummary), nameof(ShowToolOutput), nameof(ThemeIsLight), nameof(SelectedProfile), nameof(SelectedProfileDescription),
-            nameof(CpuSummary));
+            nameof(CpuSummary), nameof(OutputContainer), nameof(SamplesChoice));
         NotifyHardware();
         NotifyManual();
         NotifyTarget();
@@ -226,12 +258,38 @@ public sealed partial class MainViewModel
     public string CpuSummary =>
         $"CRF search: {ResourcePlanner.Plan(Settings.SearchCpu).Description}{Environment.NewLine}Encoding: {ResourcePlanner.Plan(Settings.EncodeCpu).Description}";
 
-    public void ClearAnalysisCache()
+    /// <summary>
+    /// Forgets every CRF search result: AV1 Studio's own result cache, ab-av1's sample-encode cache
+    /// (%LOCALAPPDATA%\ab-av1) and the CRF already found for queued files, so the next run searches again.
+    /// Returns a short summary for the user.
+    /// </summary>
+    public string ClearAnalysisCache()
     {
+        int results = _cache.Entries.Count;
         _cache.Entries.Clear();
-        try { _cache.Save(); } catch { }
-        Log.Info("AB-AV1 analysis cache cleared");
+        try { _cache.Save(); } catch (Exception ex) { Log.Warn($"Could not save the analysis cache: {ex.Message}"); }
+
+        bool abOk = AbAv1Cache.Clear(out long freed, out string? error);
+
+        int requeued = 0;
+        foreach (var i in Items.Where(i => i.Kind == ItemKind.Video && i.Mode == EncodeMode.AbAv1 && !i.IsBusy && !i.Status.IsFinal()
+                                           && (i.Search != null || i.Status == ItemStatus.CrfFound || i.Status == ItemStatus.Ready)))
+        {
+            i.InvalidateAnalysis();
+            i.Status = ItemStatus.Waiting;
+            i.StatusDetail = "Will run a new CRF search";
+            requeued++;
+        }
+        _dirty = true;
+        RefreshPlanned();
+        RefreshStorage();
+
+        var summary = $"Cleared {results} saved CRF result(s)" +
+                      (abOk ? $" and ab-av1's sample cache ({Fmt.Bytes(freed)})" : "") +
+                      (requeued > 0 ? $"; {requeued} queued file(s) will be analysed again." : ".");
+        Log.Info(summary);
+        return abOk ? summary : summary + "\n\n" + error;
     }
 
-    public void NotifyToolsInfo() => Notify(nameof(DecoderSummary), nameof(EncoderSummary), nameof(PixelFormatSummary));
+    public void NotifyToolsInfo() => Notify(nameof(DecoderSummary), nameof(EncoderSummary), nameof(PixelFormatSummary), nameof(HardwareEncoderSummary), nameof(OutputContainerChoices));
 }

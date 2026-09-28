@@ -5,10 +5,7 @@ namespace AV1Studio.Services;
 
 public static class FileScanner
 {
-    public static HashSet<string> ParseExtensions(string list) =>
-        list.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(e => "." + e.TrimStart('*', '.').ToLowerInvariant())
-            .ToHashSet();
+    public static HashSet<string> ParseExtensions(string list) => MediaTypes.Parse(list);
 
     /// <summary>Enumerate video files. Skips our own temporary/partial outputs and anything inside
     /// the destination folder (so encoded results are never picked up as new sources).</summary>

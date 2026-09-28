@@ -53,7 +53,7 @@ public static class PreviewService
         {
             var m = s.Manual;
             var spec = ManualCommands.Spec(m.Encoder);
-            ext = OutputPlanner.ContainerExtension(m.Container, item.SourcePath);
+            ext = OutputPlanner.ContainerExtension(s.Container, item.SourcePath);
             output = Path.Combine(Folder, "preview." + ext);
             var streams = AbAv1Commands.PlanStreams(TrackOptions.FromManual(m), probe, ext, item.AudioSelection, item.SubtitleSelection);
             if (streams.Blocker != null) throw new InvalidOperationException(streams.Blocker);

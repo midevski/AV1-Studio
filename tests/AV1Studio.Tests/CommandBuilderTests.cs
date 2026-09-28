@@ -51,7 +51,7 @@ public class CommandBuilderTests
         Assert.Contains("--keyint 10s --scd true", J);
         Assert.Contains("--svt film-grain=8 --svt tune=0 --svt enable-overlays=1 --svt lp=8", J);
         Assert.Contains("--min-vmaf 93.5 --max-encoded-percent 70 --min-crf 10 --max-crf 50", J);
-        Assert.Contains("--thorough --samples 4 --sample-duration 10s --cache false", J);
+        Assert.Contains("--thorough --samples 4 --sample-duration 10s --cache false", J); // no --sample-every with a fixed count
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class CommandBuilderTests
         var streams = AbAv1Commands.PlanStreams(s, Probe(Audio(1, 0, "ac3")), "mkv", null, null);
         var a = AbAv1Commands.Encode(s, Tools, Probe(), @"D:\M\a.mkv", 31.25, @"E:\o\a_AV1.partial.mkv", streams, @"C:\p.txt");
         Assert.Equal(["encode", "-i", @"D:\M\a.mkv", "--crf", "31.25", "-o", @"E:\o\a_AV1.partial.mkv",
-                      "--verify", "--fail-fast", "--enc", @"progress=C:\p.txt"], a);
+                      "--enc", "f=matroska", "--verify", "--fail-fast", "--enc", @"progress=C:\p.txt"], a);
     }
 
     [Fact]

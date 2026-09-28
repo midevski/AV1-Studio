@@ -6,6 +6,8 @@ public sealed class ProbeInfo
     public double? DurationSeconds { get; set; }
     public long? SizeBytes { get; set; }
     public string? FormatName { get; set; }
+    /// <summary>MP4/MOV "major_brand" tag (e.g. isom, qt), used to tell MP4 from QuickTime.</summary>
+    public string? MajorBrand { get; set; }
     public string? Title { get; set; }
     public int ChapterCount { get; set; }
     public List<StreamInfo> Streams { get; set; } = new();

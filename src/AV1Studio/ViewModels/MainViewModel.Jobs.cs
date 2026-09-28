@@ -112,15 +112,25 @@ public sealed partial class MainViewModel
     {
         var list = Items.Where(i => !i.IsBusy && pred(i)).ToList();
         if (list.Count == 0) return;
-        using (ItemsView.DeferRefresh())
-            foreach (var i in list) Items.Remove(i);
+        RemoveItems(list);
+        Log.Info($"Removed {list.Count} {what} file(s) from the queue (files on disk untouched)");
+    }
+
+    /// <summary>Removes queue entries (never files on disk) and everything that still points at them.</summary>
+    private void RemoveItems(IReadOnlyCollection<QueueItem> list)
+    {
+        var gone = list.ToHashSet();
+        Items.RemoveRange(gone);
+        if (SelectedItem != null && gone.Contains(SelectedItem)) SelectedItem = null;
+        SelectedItems = SelectedItems.Where(i => !gone.Contains(i)).ToList();
+        if (EncodeTarget != null && gone.Contains(EncodeTarget)) EncodeTarget = Items.FirstOrDefault(i => i.Kind == ItemKind.Video);
         // folder jobs without remaining items are forgotten (their files stay on disk)
         var used = Items.Where(i => i.FolderJobId != null).Select(i => i.FolderJobId!.Value).ToHashSet();
         lock (_folders) _folders.RemoveAll(f => !used.Contains(f.Id));
-        Log.Info($"Removed {list.Count} {what} file(s) from the queue (files on disk untouched)");
         _dirty = true;
         RefreshStorage();
         RefreshFolderProgress();
+        CommandManagerInvalidate();
     }
 
     private void RetryFailed()
@@ -189,9 +199,11 @@ public sealed partial class MainViewModel
             return (jobs, list);
         });
 
+        // the queue may have changed while scanning: drop anything queued meanwhile
+        var now = new HashSet<string>(Items.Select(i => OutputPlanner.Normalize(i.SourcePath)), StringComparer.OrdinalIgnoreCase);
+        found = found.Where(f => now.Add(OutputPlanner.Normalize(f.SourcePath))).ToList();
         lock (_folders) _folders.AddRange(newJobs);
-        using (ItemsView.DeferRefresh())
-            foreach (var i in found) Items.Add(i);
+        Items.AddRange(found);
 
         int videos = found.Count(f => f.Kind == ItemKind.Video);
         Log.Info(found.Count == 0 && newJobs.Count == 0 ? "No new files found (already queued or no videos)."
@@ -205,6 +217,38 @@ public sealed partial class MainViewModel
         RefreshStorage();
         RefreshFolderProgress();
         foreach (var i in found.Where(f => f.Kind == ItemKind.Video)) _ = ProbeInBackgroundAsync(i);
+    }
+
+    // ================================================================= output container checks
+
+    /// <summary>MP4 output needs an FFmpeg that can write AV1 into MP4 (never silently switched to MKV), and
+    /// the user is told before starting which tracks MP4 cannot store.</summary>
+    private bool CheckOutputContainers(List<QueueItem> targets)
+    {
+        var videos = targets.Where(i => i.Kind == ItemKind.Video).ToList();
+        var mp4Jobs = videos.Where(i => OutputPlanner.ContainerExtension(JobSettings(i), i.SourcePath) == "mp4").ToList();
+        if (mp4Jobs.Count > 0 && !Tools.CanWriteAv1Mp4)
+        {
+            InfoDialog?.Invoke("MP4 output unavailable",
+                $"{mp4Jobs.Count} file(s) are set to MP4 output, but this FFmpeg build cannot write AV1 video into MP4 files.\n\n" +
+                "Choose MKV as the output container, or install a current FFmpeg build (Settings › Tools).");
+            return false;
+        }
+
+        // Tracks that the chosen container cannot store (e.g. image subtitles or fonts in MP4).
+        var losses = new List<string>();
+        foreach (var i in mp4Jobs.Where(i => i.Probe != null))
+        {
+            var s = JobSettings(i);
+            var opts = i.Mode == EncodeMode.Manual ? TrackOptions.FromManual(s.Manual) : TrackOptions.FromAbAv1(s);
+            var plan = AbAv1Commands.PlanStreams(opts, i.Probe!, "mp4", i.AudioSelection, i.SubtitleSelection);
+            foreach (var w in plan.Warnings.Where(w => w.Contains("dropped", StringComparison.OrdinalIgnoreCase)))
+                losses.Add($"• {i.FileName}: {w}");
+        }
+        if (losses.Count == 0) return true;
+        return ConfirmDialog?.Invoke("Some tracks cannot be stored in MP4",
+            string.Join("\n", losses.Take(12)) + (losses.Count > 12 ? $"\n… and {losses.Count - 12} more" : "") +
+            "\n\nThese tracks will not be in the MP4 files. Choose MKV as the output container to keep them.\n\nContinue with MP4?") ?? false;
     }
 
     // ================================================================= folder progress
@@ -221,9 +265,11 @@ public sealed partial class MainViewModel
         List<FolderJob> folders;
         lock (_folders) folders = _folders.ToList();
         var list = new List<FolderSummary>();
+        if (folders.Count == 0 && FolderSummaries.Count == 0) { UpdateCurrentOperation(); return; }
+        var byFolder = Items.Where(i => i.FolderJobId != null).ToLookup(i => i.FolderJobId!.Value); // one pass over the queue
         foreach (var f in folders)
         {
-            var items = Items.Where(i => i.FolderJobId == f.Id).ToList();
+            var items = byFolder[f.Id].ToList();
             var vids = items.Where(i => i.Kind == ItemKind.Video).ToList();
             var copies = items.Where(i => i.Kind == ItemKind.Copy).ToList();
             double Frac(QueueItem i) => i.Status.IsFinal() || i.Status == ItemStatus.Failed ? 1 : i.Status is ItemStatus.Encoding or ItemStatus.Verifying ? i.Progress / 100 : 0;
@@ -245,6 +291,11 @@ public sealed partial class MainViewModel
             list.Add(new FolderSummary($"📁 {f.Name}", details, overall * 100, vp * 100, cp * 100, state));
         }
         FolderSummaries = list;
+        UpdateCurrentOperation();
+    }
+
+    private void UpdateCurrentOperation()
+    {
         var cur = Items.FirstOrDefault(i => i.IsBusy);
         CurrentOperation = cur is null ? "" : $"{cur.StatusText}: {cur.RelativePath}";
     }
@@ -264,7 +315,7 @@ public sealed partial class MainViewModel
             {
                 var plan = i.Kind == ItemKind.Copy ? OutputPlanner.PlanCopy(s, i, CollisionPolicy.ReuseIfValid)
                     : OutputPlanner.Plan(s, i, i.EffectiveCrf, i.Mode == EncodeMode.Manual
-                        ? OutputPlanner.ContainerExtension(s.Manual.Container, i.SourcePath) : null, null, CollisionPolicy.ReuseIfValid);
+                        ? OutputPlanner.ContainerExtension(s.Container, i.SourcePath) : null, null, CollisionPolicy.ReuseIfValid);
                 if (plan.ExistingOutput) existing++;
             }
             catch { }

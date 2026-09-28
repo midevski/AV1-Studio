@@ -44,6 +44,8 @@ public sealed class ToolStatus
 
     public bool FfmpegHasZscale { get; set; }
     public bool FfmpegHasDav1d { get; set; }
+    /// <summary>A real test proved this FFmpeg can write AV1 video into an MP4 file.</summary>
+    public bool CanWriteAv1Mp4 { get; set; }
 
     public bool HardwareAvailable(string encoder) => HardwareAv1Encoders.Contains(encoder);
 
@@ -130,6 +132,7 @@ public static class ToolLocator
                 if (!st.FfmpegHasLibVmaf) st.Problems.Add("This FFmpeg build has no libvmaf filter (required for CRF search).");
 
                 if (st.FfmpegHasSvtAv1) await DetectSvtVersion(st, ct);
+                if (st.FfmpegHasSvtAv1) await DetectAv1Mp4(st, ct);
                 st.FfmpegHasZscale = Regex.IsMatch(flt, @"\szscale\s");
                 await DetectHardwareEncoders(st, enc, ct);
                 await HardwareCapabilities.DetectAsync(st, enc, ct);
@@ -194,6 +197,35 @@ public static class ToolLocator
         catch (Exception ex) when (ex is not OperationCanceledException) { /* informational only */ }
     }
 
+    /// <summary>Writes one AV1 frame into a real MP4 file and reads it back: MP4 output is only offered when this works.</summary>
+    private static async Task DetectAv1Mp4(ToolStatus st, CancellationToken ct)
+    {
+        var file = Path.Combine(AppPaths.Temp, $"av1-mp4-test-{Guid.NewGuid():N}.mp4");
+        try
+        {
+            Directory.CreateDirectory(AppPaths.Temp);
+            var (code, _, _) = await ChildProcess.RunCaptureAsync(st.FfmpegPath!,
+            [
+                "-hide_banner", "-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=64x64:r=1:d=1",
+                "-frames:v", "1", "-c:v", "libsvtav1", "-f", "mp4", "-movflags", "+faststart", file,
+            ], ct, TimeSpan.FromSeconds(30));
+            if (code == 0 && File.Exists(file) && st.FfprobePath != null)
+            {
+                var probe = await FfprobeService.ProbeAsync(st.FfprobePath, file, ct);
+                st.CanWriteAv1Mp4 = probe.MainVideo?.Codec == "av1" && OutputContainers.Matches(OutputContainers.Mp4, probe, out _);
+            }
+            if (!st.CanWriteAv1Mp4) st.Notes.Add("This FFmpeg build cannot write AV1 video into MP4 files — MP4 output is unavailable (MKV works).");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            st.Notes.Add($"MP4 output could not be tested: {ex.Message}");
+        }
+        finally
+        {
+            try { File.Delete(file); } catch { }
+        }
+    }
+
     /// <summary>Encoders ab-av1 can drive with a CRF-like quality option (nvenc: -cq, qsv: -global_quality).
     /// av1_amf is not offered: ab-av1 would pass -crf, which AMF does not support.</summary>
     public static readonly (string Id, string Name)[] SupportedHardwareEncoders =
@@ -231,7 +263,11 @@ public static class ToolLocator
     private static string? Find(string configured, string exeName, string? preferDir = null)
     {
         if (!string.IsNullOrWhiteSpace(configured))
-            return File.Exists(configured) ? Path.GetFullPath(configured) : null;
+        {
+            if (File.Exists(configured)) return Path.GetFullPath(configured);
+            // e.g. settings copied from another PC: fall back to automatic detection instead of failing
+            Log.Warn($"{exeName} was configured at a location that does not exist on this PC; searching automatically.");
+        }
 
         var candidates = new List<string>();
         if (preferDir != null) candidates.Add(preferDir);
@@ -244,9 +280,13 @@ public static class ToolLocator
         var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         candidates.Add(Path.Combine(local, "Microsoft", "WinGet", "Links"));
         candidates.Add(Path.Combine(user, "scoop", "shims"));
-        candidates.Add(@"C:\ProgramData\chocolatey\bin");
-        candidates.Add(@"C:\ffmpeg\bin");
+        var choco = Environment.GetEnvironmentVariable("ChocolateyInstall");
+        candidates.Add(Path.Combine(string.IsNullOrWhiteSpace(choco)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "chocolatey") : choco, "bin"));
         candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ffmpeg", "bin"));
+        // common manual install location "<system drive>\ffmpeg\bin"
+        var systemRoot = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.Windows));
+        if (!string.IsNullOrEmpty(systemRoot)) candidates.Add(Path.Combine(systemRoot, "ffmpeg", "bin"));
         candidates.Add(Path.Combine(user, ".cargo", "bin"));
 
         foreach (var dir in candidates)

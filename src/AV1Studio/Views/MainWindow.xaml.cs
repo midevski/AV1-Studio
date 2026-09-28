@@ -52,7 +52,7 @@ public partial class MainWindow : Window
         bool scrollPending = false;
         ((INotifyCollectionChanged)_vm.LogEntries).CollectionChanged += (_, e) =>
         {
-            if (e.Action != NotifyCollectionChangedAction.Add || scrollPending) return;
+            if (e.Action is not (NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Reset) || scrollPending) return;
             scrollPending = true;
             Dispatcher.BeginInvoke(() =>
             {
@@ -93,8 +93,10 @@ public partial class MainWindow : Window
             await _vm.AddPathsAsync(paths);
     }
 
-    private void OnCopyLogLine(object sender, RoutedEventArgs e)
+    private async void OnCopyLogLine(object sender, RoutedEventArgs e)
     {
-        if (LogList.SelectedItem is LogEntry le) Clipboard.SetText($"{le.TimeText} {le.Display}");
+        if (LogList.SelectedItem is LogEntry le
+            && !await Util.ClipboardHelper.TrySetTextAsync(Diagnostics.Redact($"{le.TimeText} {le.Display}")))
+            _vm.InfoDialog?.Invoke("Copy failed", "The clipboard is currently in use by another application. Please try again.");
     }
 }

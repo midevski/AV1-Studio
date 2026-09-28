@@ -39,7 +39,7 @@
         <Border Grid.Row="0" Padding="10,8" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,0,0,1">
             <DockPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Top">
-                    <Button Command="{Binding CleanupPartialsCommand}" ToolTip="Find and delete leftover temporary (*.av1studio.partial) files from interrupted encodes" Margin="0,0,6,0"
+                    <Button Command="{Binding CleanupPartialsCommand}" ToolTip="Clean up temporary files left by interrupted encodes" Margin="0,0,6,0"
                             AutomationProperties.Name="Clean up temporary files">
                         <TextBlock Style="{StaticResource Icon}" Text="&#xE74D;" />
                     </Button>
@@ -49,7 +49,7 @@
                     <Button Command="{Binding AboutCommand}" ToolTip="About AV1 Studio and diagnostic report (F1)" Margin="0,0,6,0">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE946;" /><TextBlock Text=" About" /></StackPanel>
                     </Button>
-                    <Button Command="{Binding OpenSettingsCommand}" ToolTip="Settings — CPU &amp; hardware, AB-AV1, output, safety, tools… (Ctrl+,)">
+                    <Button Command="{Binding OpenSettingsCommand}" ToolTip="Settings (Ctrl+,)">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE713;" /><TextBlock Text=" Settings" /></StackPanel>
                     </Button>
                 </StackPanel>
@@ -59,25 +59,25 @@
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE710;" /><TextBlock Text=" Add files" /></StackPanel>
                     </Button>
                     <Button Command="{Binding AddFolderCommand}" Margin="0,0,16,0" AutomationProperties.Name="Add folder"
-                            ToolTip="Add a folder and everything inside it (Ctrl+Shift+O). With a destination set, the whole folder tree is recreated there: videos encoded, other files copied.">
+                            ToolTip="Add a folder and its sub-folders (Ctrl+Shift+O). With a destination set, the folder structure is recreated there.">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8B7;" /><TextBlock Text=" Add folder" /></StackPanel>
                     </Button>
 
                     <Button Command="{Binding AnalyzeAllCommand}" Margin="0,0,6,0"
-                            ToolTip="AB-AV1 files only: run the CRF search (target VMAF → CRF) without encoding, to see CRF, VMAF and predicted sizes first (F5)">
+                            ToolTip="Run the CRF search for AB-AV1 files without encoding, to see the CRF and estimated sizes first (F5)">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE9D9;" /><TextBlock Text=" Analyze all" /></StackPanel>
                     </Button>
                     <Button Command="{Binding EncodeAnalyzedCommand}" Margin="0,0,6,0"
-                            ToolTip="Encode analyzed AB-AV1 files and every waiting Manual AV1 file (Ctrl+E)">
+                            ToolTip="Encode analyzed AB-AV1 files and queued Manual AV1 files (Ctrl+E)">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE768;" /><TextBlock Text=" Encode all" /></StackPanel>
                     </Button>
                     <Button Command="{Binding AnalyzeAndEncodeCommand}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,16,0"
-                            ToolTip="Process every queued file, one after another, each with its own mode and settings: (CRF search →) encode → verify → delete source if enabled → next (Ctrl+F5)">
+                            ToolTip="Analyze, encode and verify every queued file (Ctrl+F5)">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE945;" /><TextBlock Text=" Start (analyze + encode all)" /></StackPanel>
                     </Button>
 
                     <Button Command="{Binding PauseResumeCommand}" Margin="0,0,6,0"
-                            ToolTip="Pause freezes the running encode without losing anything; Resume continues exactly where it stopped (Ctrl+P)">
+                            ToolTip="Pause or resume the current encode (Ctrl+P)">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE769;" /><TextBlock Text="{Binding PauseResumeText, StringFormat=' {0}'}" /></StackPanel>
                     </Button>
                     <ToggleButton Command="{Binding PauseCommand}" IsChecked="{Binding PauseRequested, Mode=OneWay}" Margin="0,0,6,0"
@@ -85,7 +85,7 @@
                         <TextBlock Text="Stop after current" />
                     </ToggleButton>
                     <Button Command="{Binding StopCommand}"
-                            ToolTip="Stop immediately: kills the running encode, deletes its partial output, never touches sources (Shift+F5)">
+                            ToolTip="Stop now. The unfinished output is removed; source files are not affected (Shift+F5)">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE71A;" Foreground="{StaticResource DangerText}" /><TextBlock Text=" Stop" /></StackPanel>
                     </Button>
                 </WrapPanel>
@@ -112,7 +112,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Source" Style="{StaticResource Label}" Width="80" />
                     <TextBox Grid.Column="1" Text="{Binding SourceFolder, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Source folder"
-                             ToolTip="Library folder to scan (e.g. D:\Movies). You can also drag &amp; drop files or folders anywhere in the window." />
+                             ToolTip="Folder to scan. You can also drag and drop files or folders onto the window." />
                     <Button Grid.Column="2" Content="Browse…" Command="{Binding BrowseSourceCommand}" Margin="6,0,0,0" />
                     <Button Grid.Column="3" Command="{Binding ScanSourceCommand}" Margin="6,0,0,0" ToolTip="Add everything in the source folder to the queue">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE721;" /><TextBlock Text=" Scan" /></StackPanel>
@@ -124,7 +124,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Destination" Style="{StaticResource Label}" Width="80" />
                     <TextBox Grid.Column="1" Text="{Binding DestinationFolder, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Destination folder"
-                             ToolTip="Where AV1 files are written (e.g. E:\AV1 Library). Added folders are recreated here with their complete structure; files keep their names. Empty = next to each source file (with an _AV1 suffix)." />
+                             ToolTip="Where encoded files are saved. Added folders are recreated here with the same structure and file names. Leave empty to save next to each source file (with an _AV1 suffix)." />
                     <Button Grid.Column="2" Content="Browse…" Command="{Binding BrowseDestinationCommand}" Margin="6,0,0,0" />
                     <Button Grid.Column="3" Command="{Binding ClearDestinationCommand}" Margin="6,0,0,0" ToolTip="Write next to each source file" AutomationProperties.Name="Clear destination">
                         <TextBlock Style="{StaticResource Icon}" Text="&#xE894;" />
@@ -166,11 +166,15 @@
                     <ComboBox ItemsSource="{Binding VmafChoices}" IsEditable="True" Width="80" Text="{Binding TargetVmaf, UpdateSourceTrigger=LostFocus}"
                               ToolTip="{x:Static v:Tips.Vmaf}" AutomationProperties.Name="Target VMAF" />
                     <v:HelpTip Text="{x:Static v:Tips.Vmaf}" />
+                    <TextBlock Text="Samples" Style="{StaticResource Label}" Margin="14,0,8,0" />
+                    <ComboBox ItemsSource="{Binding SampleChoices}" SelectedItem="{Binding SamplesChoice}" Width="92"
+                              ToolTip="{x:Static v:Tips.Samples}" AutomationProperties.Name="CRF search samples" />
+                    <v:HelpTip Text="{x:Static v:Tips.Samples}" />
                     <TextBlock Text="Preset" Style="{StaticResource Label}" Margin="14,0,8,0" />
                     <Grid>
-                        <ComboBox ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding SelectedPreset}" DisplayMemberPath="Label" Width="250"
+                        <ComboBox ItemsSource="{Binding PresetOptions}" SelectedItem="{Binding SelectedPreset}" DisplayMemberPath="Label" Width="200"
                                   Visibility="{Binding HardwareEncoding, Converter={StaticResource NotEmptyVis}, ConverterParameter=invert}" ToolTip="{x:Static v:Tips.Preset}" />
-                        <ComboBox ItemsSource="{Binding HardwarePresetOptions}" SelectedItem="{Binding SelectedHardwarePreset}" DisplayMemberPath="Label" Width="250"
+                        <ComboBox ItemsSource="{Binding HardwarePresetOptions}" SelectedItem="{Binding SelectedHardwarePreset}" DisplayMemberPath="Label" Width="200"
                                   Visibility="{Binding HardwareEncoding, Converter={StaticResource BoolVis}}" ToolTip="{x:Static v:Tips.Preset}" />
                     </Grid>
                     <ToggleButton IsChecked="{Binding HardwareEncoding}" IsEnabled="{Binding CanToggleHardware}" Margin="10,0,0,0" Padding="10,4"
@@ -196,13 +200,18 @@
                     <TextBlock Text="Preset" Style="{StaticResource Label}" Margin="12,0,8,0" />
                     <ComboBox ItemsSource="{Binding PresetChoices}" SelectedValuePath="Value" DisplayMemberPath="Label" SelectedValue="{Binding Manual.Preset}"
                               Width="180" ToolTip="{x:Static v:Tips.Preset}" AutomationProperties.Name="Manual preset" />
-                    <Button Command="{Binding OpenManualCommand}" Margin="10,0,0,0" ToolTip="All Manual AV1 settings: video, filters, audio, subtitles, HDR, advanced, output, preview and command (Ctrl+M)">
+                    <Button Command="{Binding OpenManualCommand}" Margin="10,0,0,0" ToolTip="All Manual AV1 settings (Ctrl+M)">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE9E9;" /><TextBlock Text=" Manual AV1 settings…" /></StackPanel>
                     </Button>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <TextBlock Text="Concurrent jobs" Style="{StaticResource Label}" />
+                    <TextBlock Text="Output container" Style="{StaticResource Label}" />
+                    <ComboBox ItemsSource="{Binding OutputContainerChoices}" SelectedValuePath="Value" DisplayMemberPath="Label"
+                              SelectedValue="{Binding OutputContainer}" Width="90" ToolTip="{x:Static v:Tips.OutputContainer}"
+                              AutomationProperties.Name="Output container" />
+                    <v:HelpTip Text="{x:Static v:Tips.OutputContainer}" />
+                    <TextBlock Text="Concurrent jobs" Style="{StaticResource Label}" Margin="18,0,8,0" />
                     <ComboBox ItemsSource="{Binding ConcurrencyChoices}" SelectedItem="{Binding ConcurrentJobs}" Width="70" ToolTip="{x:Static v:Tips.Concurrency}" />
                     <CheckBox IsChecked="{Binding DeleteSource}" Margin="18,0,0,0" VerticalAlignment="Center" ToolTip="{x:Static v:Tips.DeleteSource}">
                         <TextBlock Text="Delete source file after successful, verified encoding" Foreground="#FFB4A2" />
@@ -234,7 +243,7 @@
                 <!-- queue maintenance -->
                 <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                     <Button Command="{Binding ClearQueueCommand}" Margin="0,0,6,0" Padding="10,3"
-                            ToolTip="Remove every file that is not being processed from the queue. Files on disk are never touched.">
+                            ToolTip="Remove all files from the queue (files that are encoding stay). Files on disk are not deleted.">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE894;" FontSize="12" /><TextBlock Text=" Clear Library Queue" /></StackPanel>
                     </Button>
                     <Button Content="Clear completed" Command="{Binding ClearCompletedCommand}" Margin="0,0,6,0" Padding="10,3" ToolTip="Remove completed files from the queue (they stay in the Library tab)" />
@@ -313,7 +322,7 @@
                                 <MenuItem Header="Use AB-AV1 (automatic quality)" Command="{Binding SetModeAbAv1Command}" />
                                 <MenuItem Header="Use Manual AV1 (full control)" Command="{Binding SetModeManualCommand}" />
                                 <MenuItem Header="Apply current settings to selected…" Command="{Binding ApplySettingsToSelectedCommand}"
-                                          ToolTip="Queued files keep the settings they were added with. Use this to update them to the current settings." />
+                                          ToolTip="Queued files keep the settings they were added with. This updates them to the current settings." />
                                 <MenuItem Header="Choose audio / subtitle tracks…" Command="{Binding ChooseTracksCommand}" InputGestureText="Ctrl+T" />
                                 <MenuItem Header="Force new CRF search (AB-AV1)" Command="{Binding ReanalyzeSelectedCommand}" />
                                 <Separator />
@@ -366,6 +375,7 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Mode" Binding="{Binding ModeText}" Width="80" />
                             <DataGridTextColumn Header="Target" Binding="{Binding TargetText}" Width="72" />
+                            <DataGridTextColumn Header="Output" Binding="{Binding OutputContainer}" Width="60" />
                             <DataGridTextColumn Header="Encoder" Binding="{Binding EncoderText}" Width="110" />
                             <DataGridTextColumn Header="CRF" Binding="{Binding CrfText}" Width="70" />
                             <DataGridTextColumn Header="Preset" Binding="{Binding PresetText}" Width="96" />
@@ -413,6 +423,8 @@
                                     <Ellipse Width="10" Height="10" Fill="{Binding Status, Converter={StaticResource StatusBrush}}" Margin="0,0,8,0" />
                                     <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" Foreground="{Binding Status, Converter={StaticResource StatusBrush}}" />
                                     <TextBlock Text="{Binding ModeText, StringFormat='  ·  {0}'}" Foreground="{StaticResource SubtleText}" />
+                                    <TextBlock Text="{Binding OutputContainer, StringFormat='  ·  AV1 in {0}'}" Foreground="{StaticResource SubtleText}"
+                                               Visibility="{Binding OutputContainer, Converter={StaticResource NotEmptyVis}}" />
                                     <TextBlock Text="{Binding SourceStateText}" Margin="12,0,0,0" FontWeight="SemiBold" Foreground="{StaticResource SuccessText}" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding StatusDetail}" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{StaticResource SubtleText}"
@@ -433,6 +445,14 @@
                                 <TextBlock Text="{Binding ErrorWhy}" TextWrapping="Wrap" Margin="0,0,0,8" Visibility="{Binding ErrorWhy, Converter={StaticResource NotEmptyVis}}" />
                                 <TextBlock Text="WHAT YOU CAN DO" Style="{StaticResource CardTitle}" Visibility="{Binding ErrorFix, Converter={StaticResource NotEmptyVis}}" />
                                 <TextBlock Text="{Binding ErrorFix}" TextWrapping="Wrap" Visibility="{Binding ErrorFix, Converter={StaticResource NotEmptyVis}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- tracks the output container could not store as-is -->
+                        <Border Style="{StaticResource Card}" BorderBrush="{StaticResource WarningText}" Visibility="{Binding TrackNotes, Converter={StaticResource NotEmptyVis}}">
+                            <StackPanel>
+                                <TextBlock Text="TRACKS" Style="{StaticResource CardTitle}" Foreground="{StaticResource WarningText}" />
+                                <TextBlock Text="{Binding TrackNotes}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
 
@@ -457,7 +477,7 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <TextBlock Text="CRF override" Style="{StaticResource Label}" />
                                     <TextBox Width="70" Text="{Binding CrfOverrideText, UpdateSourceTrigger=LostFocus}"
-                                             ToolTip="Leave empty to use the CRF found by AB-AV1. A value here is used for this file's encode instead." />
+                                             ToolTip="Leave empty to use the CRF found by AB-AV1." />
                                     <TextBlock Text="empty = use detected" Foreground="{StaticResource SubtleText}" Margin="8,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <TextBlock Text="Search attempts" Style="{StaticResource Label}" />
@@ -484,7 +504,7 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                     <TextBlock Text="Quality override for this file" Style="{StaticResource Label}" />
                                     <TextBox Width="70" Text="{Binding CrfOverrideText, UpdateSourceTrigger=LostFocus}"
-                                             ToolTip="Empty = use the quality this file was queued with. A value here applies to this file only." />
+                                             ToolTip="Leave empty to use the quality this file was queued with." />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -519,7 +539,7 @@
                                     <TextBlock Grid.Row="3" Text="CPU (encoder)" Style="{StaticResource Label}" ToolTip="CPU used by the encoder process tree, % of the whole machine" />
                                     <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CpuPercent, StringFormat={}{0:0}%, TargetNullValue='N/A'}" Style="{StaticResource Value}" />
                                     <TextBlock Grid.Row="3" Grid.Column="2" Text="GPU encoder" Style="{StaticResource Label}"
-                                               ToolTip="Utilisation of the GPU's video-encode engine by the encoder processes (Windows counters). N/A for CPU encoders or when not measurable. This is not the same as normal GPU (3D) usage." />
+                                               ToolTip="Load of the GPU video encoder. N/A for software encoders." />
                                     <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding GpuPercent, StringFormat={}{0:0}%, TargetNullValue='N/A'}" Style="{StaticResource Value}" />
                                     <TextBlock Grid.Row="4" Text="RAM" Style="{StaticResource Label}" />
                                     <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RamBytes, Converter={StaticResource Bytes}}" Style="{StaticResource Value}" />
@@ -600,10 +620,10 @@
                         <ComboBox ItemsSource="{Binding LogLevelFilters}" SelectedItem="{Binding LogLevelFilter}" Margin="0,0,0,4" ToolTip="Show only errors, warnings, commands or raw tool output" />
                         <TextBox Text="{Binding LogSearch, UpdateSourceTrigger=PropertyChanged, Delay=250}" Margin="0,0,0,4" ToolTip="Search the log" AutomationProperties.Name="Search log" />
                         <CheckBox Content="Raw tool output" IsChecked="{Binding ShowToolOutput}" Margin="0,0,0,4"
-                                  ToolTip="Also show every line printed by FFmpeg and ab-av1 (always written to the log file)" />
+                                  ToolTip="Also show FFmpeg and ab-av1 output (always saved in the log file)" />
                         <WrapPanel>
-                            <Button Content="Copy" Command="{Binding CopyLogCommand}" Margin="0,0,4,4" ToolTip="Copy the visible entries" />
-                            <Button Content="Export…" Command="{Binding ExportLogCommand}" Margin="0,0,4,4" />
+                            <Button Content="Copy Logs" Command="{Binding CopyLogCommand}" Margin="0,0,4,4" ToolTip="Copy the visible log entries to the clipboard" />
+                            <Button Content="Save Logs…" Command="{Binding ExportLogCommand}" Margin="0,0,4,4" ToolTip="Save today's log to a file, e.g. for a bug report" />
                             <Button Content="Folder" Command="{Binding OpenLogFolderCommand}" Margin="0,0,4,4" />
                             <Button Content="Clear" Command="{Binding ClearLogCommand}" Margin="0,0,4,4" ToolTip="Clear this view (the log file is kept)" />
                         </WrapPanel>

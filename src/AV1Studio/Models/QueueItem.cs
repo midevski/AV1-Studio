@@ -138,6 +138,14 @@ public sealed class QueueItem : ObservableObject
     /// <summary>What the user can do.</summary>
     public string? ErrorFix { get => _errorFix; set => Set(ref _errorFix, value); }
 
+    private string _outputContainer = "";
+    /// <summary>Output container of this job ("MKV" / "MP4"); fixed when the job is queued.</summary>
+    public string OutputContainer { get => _outputContainer; set => Set(ref _outputContainer, value); }
+
+    private string? _trackNotes;
+    /// <summary>Tracks the output container could not store as-is (converted or not kept), shown with the file.</summary>
+    public string? TrackNotes { get => _trackNotes; set => Set(ref _trackNotes, value); }
+
     /// <summary>Technical detail (raw tool message) kept for the log / copy.</summary>
     public string? ErrorDetail { get; set; }
 

@@ -299,12 +299,14 @@ public sealed class QueueProcessor
                 }
                 if (sr.Result is null) { Fail(item, $"CRF search failed: {sr.Error}"); return; }
 
-                ApplySearch(item, sr.Result, item.Attempts.ToList(), fingerprint, DateTime.UtcNow);
+                List<CrfAttempt> attempts;
+                lock (sr.Attempts) attempts = sr.Attempts.ToList();
+                ApplySearch(item, sr.Result, attempts, fingerprint, DateTime.UtcNow);
                 _cache.Put(new CachedAnalysis
                 {
                     SourcePath = item.SourcePath, Size = item.SourceSize, ModifiedUtc = item.SourceModifiedUtc,
                     QuickHash = item.QuickHash, Fingerprint = fingerprint, Result = sr.Result,
-                    Attempts = item.Attempts.ToList(), TargetVmaf = s.TargetVmaf,
+                    Attempts = attempts, TargetVmaf = s.TargetVmaf,
                     Parameters = item.LastCrfSearchCommand, TimestampUtc = DateTime.UtcNow,
                 });
                 try { _cache.Save(); } catch (Exception ex) { Log.Warn($"Could not save analysis cache: {ex.Message}"); }
@@ -332,6 +334,7 @@ public sealed class QueueProcessor
         }
         catch (Exception ex)
         {
+            Log.FileOnly($"Unexpected error while processing {item.FileName}: {ex}"); // full details for bug reports
             Fail(item, $"{ex.GetType().Name}: {ex.Message}", sourcePreserved: File.Exists(item.SourcePath));
         }
         finally
@@ -418,6 +421,7 @@ public sealed class QueueProcessor
     {
         var name = item.FileName;
         foreach (var w in streams.Warnings) Log.Warn(w, name);
+        item.TrackNotes = streams.Warnings.Count > 0 ? string.Join(Environment.NewLine, streams.Warnings) : null;
 
         // ---------- 5. disk space ----------
         long estimate = item.Search?.PredictedSize ?? item.SourceSize;
@@ -711,7 +715,8 @@ public sealed class QueueProcessor
         item.Activity = null;
         var ratio = item.SourceSize > 0 ? $" ({100.0 * outputSize / item.SourceSize:0.0}% of source)" : "";
         SetStatus(item, sourceDeleted ? ItemStatus.Deleted : ItemStatus.Completed,
-            $"{Fmt.Bytes(outputSize)}{ratio}" + (note is null ? "" : $" — {note}"));
+            $"{Fmt.Bytes(outputSize)}{ratio}" + (note is null ? "" : $" — {note}") +
+            (item.TrackNotes is null ? "" : " — some tracks were converted or not kept (see Tracks)"));
         Log.Success($"Completed: {Fmt.Bytes(item.SourceSize)} → {Fmt.Bytes(outputSize)}{ratio}", item.FileName);
         var dur = item.Probe?.DurationSeconds;
         if (note is null)

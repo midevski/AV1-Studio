@@ -26,18 +26,8 @@ public static class OutputPlanner
 
     public static string ContainerExtension(AppSettings s, string sourcePath) => ContainerExtension(s.Container, sourcePath);
 
-    public static string ContainerExtension(ContainerFormat container, string sourcePath) => container switch
-    {
-        ContainerFormat.Mp4 => "mp4",
-        ContainerFormat.WebM => "webm",
-        ContainerFormat.SameAsSource => Path.GetExtension(sourcePath).ToLowerInvariant() switch
-        {
-            ".mp4" or ".m4v" => "mp4",
-            ".webm" => "webm",
-            _ => "mkv",
-        },
-        _ => "mkv",
-    };
+    public static string ContainerExtension(ContainerFormat container, string sourcePath) =>
+        OutputContainers.Resolve(container, sourcePath).Extension;
 
     /// <summary>Destination folder for a file: destination root + the file's folder relative to the root the
     /// user selected (never flattened). Empty destination = next to the source.</summary>

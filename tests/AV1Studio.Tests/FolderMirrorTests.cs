@@ -111,12 +111,14 @@ public class FolderMirrorTests : IDisposable
         {
             Assert.Equal(File.ReadAllBytes(Path.Combine(src, rel)), File.ReadAllBytes(Path.Combine(dest, rel)));
         }
-        // videos: encoded to AV1 at the same relative path with the original name (mp4 stays mp4); sources deleted
-        foreach (var rel in new[] { @"Movie\video.mkv", @"Series\Season 1\Episode 01.mkv", @"Series\Season 1\Episode 02.mp4" })
+        // videos: encoded to AV1 at the same relative path with the original name, in the selected container (MKV by default)
+        foreach (var (srcRel, outRel) in new[] { (@"Movie\video.mkv", @"Movie\video.mkv"), (@"Series\Season 1\Episode 01.mkv", @"Series\Season 1\Episode 01.mkv"),
+                                                  (@"Series\Season 1\Episode 02.mp4", @"Series\Season 1\Episode 02.mkv") })
         {
-            var p = await FfprobeService.ProbeAsync(tools.FfprobePath!, Path.Combine(dest, rel));
+            var p = await FfprobeService.ProbeAsync(tools.FfprobePath!, Path.Combine(dest, outRel));
             Assert.Equal("av1", p.MainVideo!.Codec);
-            Assert.False(File.Exists(Path.Combine(src, rel)), "source should be deleted after verification: " + rel);
+            Assert.Contains("matroska", p.FormatName);
+            Assert.False(File.Exists(Path.Combine(src, srcRel)), "source should be deleted after verification: " + srcRel);
         }
         // an AV1 source is copied unchanged (not re-encoded, not deleted)
         Assert.True(File.Exists(Path.Combine(dest, @"Series\Season 2\Episode 01.mkv")));
