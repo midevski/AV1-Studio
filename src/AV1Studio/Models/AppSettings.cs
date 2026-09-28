@@ -13,7 +13,6 @@ public enum CollisionPolicy { Skip, AppendNumber, Overwrite, ReuseIfValid, Ask }
 public enum DeleteMode { Permanent, RecycleBin }
 public enum SpaceAction { PauseQueue, SkipFile }
 public enum ScdMode { Default, On, Off }
-public enum AppTheme { Dark, Light }
 public enum CpuUsageMode { Auto, Maximum, Balanced, Low, Custom }
 /// <summary>Process priorities offered to users. Realtime is intentionally not available.</summary>
 public enum ProcessPriority { Idle, BelowNormal, Normal, AboveNormal, High }
@@ -78,7 +77,6 @@ public sealed class AppSettings
     }
 
     // ---------- appearance ----------
-    public AppTheme Theme { get; set; } = AppTheme.Dark;
     public bool Animations { get; set; } = true;
 
     // ---------- logs ----------

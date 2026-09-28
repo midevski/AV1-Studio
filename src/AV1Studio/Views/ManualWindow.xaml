@@ -16,7 +16,7 @@
                 </Border>
                 <Button DockPanel.Dock="Right" Content="Close" IsCancel="True" Width="100" Click="OnClose" />
                 <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,14,0"
-                           Text="Encodes directly with FFmpeg and the selected AV1 encoder. Changes are saved automatically and apply to files you add next." />
+                           Text="Encodes directly with FFmpeg and the selected AV1 encoder. Changes are saved automatically and apply to every file that has not started yet." />
             </DockPanel>
         </Border>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

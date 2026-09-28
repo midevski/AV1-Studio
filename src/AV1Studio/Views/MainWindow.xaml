@@ -163,7 +163,7 @@
                 <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6"
                             Visibility="{Binding IsAbAv1Mode, Converter={StaticResource BoolVis}}">
                     <TextBlock Text="Target VMAF" Style="{StaticResource Label}" />
-                    <ComboBox ItemsSource="{Binding VmafChoices}" IsEditable="True" Width="80" Text="{Binding TargetVmaf, UpdateSourceTrigger=LostFocus}"
+                    <ComboBox ItemsSource="{Binding VmafChoices}" IsEditable="True" Width="80" Text="{Binding TargetVmaf, UpdateSourceTrigger=PropertyChanged}"
                               ToolTip="{x:Static v:Tips.Vmaf}" AutomationProperties.Name="Target VMAF" />
                     <v:HelpTip Text="{x:Static v:Tips.Vmaf}" />
                     <TextBlock Text="Samples" Style="{StaticResource Label}" Margin="14,0,8,0" />
@@ -322,7 +322,7 @@
                                 <MenuItem Header="Use AB-AV1 (automatic quality)" Command="{Binding SetModeAbAv1Command}" />
                                 <MenuItem Header="Use Manual AV1 (full control)" Command="{Binding SetModeManualCommand}" />
                                 <MenuItem Header="Apply current settings to selected…" Command="{Binding ApplySettingsToSelectedCommand}"
-                                          ToolTip="Queued files keep the settings they were added with. This updates them to the current settings." />
+                                          ToolTip="Files that have not started already use the current settings. This also applies them to failed, skipped or finished files you retry." />
                                 <MenuItem Header="Choose audio / subtitle tracks…" Command="{Binding ChooseTracksCommand}" InputGestureText="Ctrl+T" />
                                 <MenuItem Header="Force new CRF search (AB-AV1)" Command="{Binding ReanalyzeSelectedCommand}" />
                                 <Separator />

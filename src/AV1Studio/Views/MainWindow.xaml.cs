@@ -15,7 +15,6 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        ThemeManager.Apply(_vm.Settings.Theme);
         InitializeComponent();
         WindowChrome.UseDarkTitleBar(this);
         DataContext = _vm;

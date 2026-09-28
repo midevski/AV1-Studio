@@ -6,11 +6,12 @@ settings strip in AB-AV1 mode). Manual AV1 settings live in the **Manual AV1 set
 nothing from Manual AV1 is passed to ab-av1 and vice versa. Performance (CPU usage, concurrency),
 Output & folders, Safety and Tools settings are shared infrastructure used by both modes.
 
-**Queued jobs keep their settings.** When a file is added, the current settings are captured as that
-job's configuration (identical configurations are stored once). Changing settings afterwards only
-affects files added later; right-click › *Apply current settings to selected* updates queued files.
-Run-level choices — source deletion, verification, disk-space rules, CPU usage and tool paths — always
-use the current values.
+**What you see is what runs.** Files that have not started yet always use the settings shown on screen. When
+a change affects the CRF search (target VMAF, preset, samples, filters, pixel format, encoder…), a CRF that was
+already found with the old settings is discarded and the file is analyzed again — a CRF is never reused for
+different settings. Files that are being processed or are finished keep the settings they ran with, and every
+queued file keeps the output location it was added with. The exact `ab-av1` / FFmpeg command of every run is
+written to the log (lines marked `COMMAND`) and shown in the file's details (*Commands*).
 
 ## Profiles
 

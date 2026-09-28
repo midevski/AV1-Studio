@@ -58,7 +58,6 @@ public static class Diagnostics
         Line("CPU (CRF search)", ResourcePlanner.Plan(s.SearchCpu).Description);
         Line("CPU (encoding)", ResourcePlanner.Plan(s.EncodeCpu).Description);
         Line("Concurrent jobs", s.ConcurrentJobs.ToString());
-        Line("Theme", s.Theme.ToString());
         if (t.Problems.Count > 0)
         {
             sb.AppendLine();

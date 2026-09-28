@@ -57,8 +57,12 @@ public sealed partial class MainViewModel
     private void OnManualChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ManualSettings.Encoder)) ApplyEncoderDefaults();
+        if (e.PropertyName is not (nameof(ManualSettings.ProfileName) or nameof(ManualSettings.PreviewSeconds) or nameof(ManualSettings.Container))
+            && !_applyingProfile)
+            MarkCustomProfile(manual: true);
         _settingsDirty = true; // saved by the 2 s timer
         NotifyManual();
+        ScheduleJobSync();
     }
 
     private void ApplyEncoderDefaults()
@@ -137,7 +141,7 @@ public sealed partial class MainViewModel
         OutputContainers.Choices.Select(c => new ChoiceOption<ContainerFormat>(c.Format,
             c == OutputContainers.Mp4 && Tools.FfmpegPath != null && !Tools.CanWriteAv1Mp4 ? "MP4 (not supported by this FFmpeg)" : c.Label)).ToList();
 
-    /// <summary>Output container for files added from now on (both modes). Queued files keep theirs.</summary>
+    /// <summary>Output container (both modes). Applies to every file not yet started.</summary>
     public ContainerFormat OutputContainer
     {
         get => Settings.Container is ContainerFormat.Mp4 ? ContainerFormat.Mp4 : ContainerFormat.Mkv;

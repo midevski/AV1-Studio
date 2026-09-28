@@ -316,7 +316,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public IReadOnlyList<string> SampleChoices => Views.SampleOptions.Choices;
 
-    /// <summary>CRF search samples for files added from now on: "Auto" (ab-av1 decides; no --samples) or 1–10.</summary>
+    /// <summary>CRF search samples: "Auto" (ab-av1 decides; no --samples) or 1–10. Applies to every file not yet started.</summary>
     public string SamplesChoice
     {
         get => Views.SampleOptions.ToText(Settings.Samples);
@@ -325,6 +325,7 @@ public sealed partial class MainViewModel : ObservableObject
             var n = Views.SampleOptions.FromText(value);
             if (Settings.Samples == n) return;
             Settings.Samples = n;
+            MarkCustomProfile();
             SaveSettings();
             Log.Info($"CRF search samples: {Views.SampleOptions.ToText(n)}");
             Notify(nameof(SamplesChoice), nameof(CommandPreview), nameof(SelectedPreviewCommands), nameof(AbAv1AnalysisSummary));
@@ -337,9 +338,9 @@ public sealed partial class MainViewModel : ObservableObject
         set
         {
             if (value is < 50 or > 100 || double.IsNaN(value)) return;
+            if (Settings.TargetVmaf == value) return;
             Settings.TargetVmaf = value;
-            var match = AppSettings.QualityPresets.FirstOrDefault(p => p.Vmaf == value);
-            Settings.QualityPreset = match.Name ?? "Custom";
+            MarkCustomProfile();
             OnPropertyChanged(); OnPropertyChanged(nameof(QualityPreset)); OnPropertyChanged(nameof(QualityPresetDescription));
             SaveSettings();
         }
@@ -350,7 +351,14 @@ public sealed partial class MainViewModel : ObservableObject
     public PresetOption SelectedPreset
     {
         get => PresetOptions.First(p => p.Value == Settings.Preset);
-        set { Settings.Preset = value?.Value; OnPropertyChanged(); SaveSettings(); }
+        set
+        {
+            if (value is null || Settings.Preset == value.Value) return;
+            Settings.Preset = value.Value;
+            MarkCustomProfile();
+            OnPropertyChanged();
+            SaveSettings();
+        }
     }
 
     public static string PresetDescription(int p) => p switch
@@ -406,6 +414,7 @@ public sealed partial class MainViewModel : ObservableObject
                 if (!ok) { OnPropertyChanged(); return; }
             }
             Settings.HardwareEncoding = value;
+            MarkCustomProfile();
             SaveSettings();
             Log.Info($"Hardware encoding {(value ? "ON" : "OFF")} — AV1 encoder: {AbAv1Commands.EncoderDescription(Settings)}");
             NotifyHardware();
@@ -437,7 +446,10 @@ public sealed partial class MainViewModel : ObservableObject
         set
         {
             if (value?.Value is not int i) return;
-            Settings.HardwarePreset = AbAv1Commands.HardwarePresets(Settings.HardwareEncoder)[i].Value;
+            var hp = AbAv1Commands.HardwarePresets(Settings.HardwareEncoder)[i].Value;
+            if (Settings.HardwarePreset == hp) return;
+            Settings.HardwarePreset = hp;
+            MarkCustomProfile();
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedPreviewCommands));
             SaveSettings();
@@ -493,6 +505,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         try { JsonFile.Save(AppPaths.Settings, Settings); }
         catch (Exception ex) { Log.Warn($"Could not save settings: {ex.Message}"); }
+        ScheduleJobSync();
     }
 
     // =================================================================== selection / filter

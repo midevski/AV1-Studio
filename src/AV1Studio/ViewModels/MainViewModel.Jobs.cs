@@ -32,9 +32,16 @@ public sealed partial class MainViewModel
     private readonly List<FolderJob> _folders = new();
 
     /// <summary>Snapshot the current settings for newly queued jobs; identical snapshots are shared.</summary>
-    internal string CaptureProfile()
+    internal string CaptureProfile(AppSettings? keepLocationOf = null)
     {
         var snap = Settings.Clone();
+        if (keepLocationOf != null)
+        {
+            // where a queued file goes is decided when it is added (folder jobs are built around it)
+            snap.DestinationFolder = keepLocationOf.DestinationFolder;
+            snap.PreserveFolderStructure = keepLocationOf.PreserveFolderStructure;
+            snap.MirrorFolderTree = keepLocationOf.MirrorFolderTree;
+        }
         // not part of a job's configuration
         snap.WindowWidth = 0; snap.WindowHeight = 0; snap.FirstRunDone = true;
         var json = JsonSerializer.Serialize(snap, JsonFile.Options);
@@ -382,19 +389,103 @@ public sealed partial class MainViewModel
                             : (EncodingProfiles.Find(Settings.QualityPreset)?.Name ?? EncodingProfiles.Custom);
         set
         {
+            if (value is null || value == SelectedProfile) return;
             var p = EncodingProfiles.Find(value);
-            if (p is null) return;
-            if (IsManualMode) EncodingProfiles.ApplyManual(Manual, p);
-            else
+            if (p is null)
             {
-                EncodingProfiles.ApplyAbAv1(Settings, p);
-                Notify(nameof(TargetVmaf), nameof(SelectedPreset), nameof(QualityPresetDescription));
-                SaveSettings();
+                MarkCustomProfile(IsManualMode); // "Custom" chosen: keep the current values
+                return;
             }
+            _applyingProfile = true;
+            try
+            {
+                if (IsManualMode) EncodingProfiles.ApplyManual(Manual, p);
+                else
+                {
+                    EncodingProfiles.ApplyAbAv1(Settings, p);
+                    Notify(nameof(TargetVmaf), nameof(SelectedPreset), nameof(QualityPresetDescription));
+                    SaveSettings();
+                }
+            }
+            finally { _applyingProfile = false; }
             Log.Info($"Profile \"{p.Name}\" applied to {(IsManualMode ? "Manual AV1" : "AB-AV1")} settings (you can still change every value)");
             Notify(nameof(SelectedProfile), nameof(SelectedProfileDescription));
             RefreshPlanned();
         }
+    }
+
+    private bool _applyingProfile;
+
+    /// <summary>A value was changed by hand: the profile no longer describes the settings, so it shows "Custom".</summary>
+    private void MarkCustomProfile(bool manual = false)
+    {
+        if (_applyingProfile) return;
+        if (manual)
+        {
+            if (Manual.ProfileName == EncodingProfiles.Custom) return;
+            Manual.ProfileName = EncodingProfiles.Custom;
+        }
+        else
+        {
+            if (Settings.QualityPreset == EncodingProfiles.Custom) return;
+            Settings.QualityPreset = EncodingProfiles.Custom;
+        }
+        Notify(nameof(SelectedProfile), nameof(SelectedProfileDescription));
+    }
+
+    // ================================================================= queued files follow the screen
+
+    private bool _jobSyncScheduled;
+
+    /// <summary>Coalesces many setting changes (typing, profiles) into one queue update.</summary>
+    private void ScheduleJobSync()
+    {
+        if (_jobSyncScheduled) return;
+        _jobSyncScheduled = true;
+        Ui.Enqueue(() =>
+        {
+            _jobSyncScheduled = false;
+            SyncQueuedJobs();
+        });
+    }
+
+    /// <summary>
+    /// Files that have not started yet always use the settings shown on screen. If a change affects the CRF
+    /// search (VMAF, preset, samples, filters…), a CRF found with the old settings is discarded and the file is
+    /// analyzed again. Files being processed or finished keep the settings they ran with; each queued file keeps
+    /// its output location.
+    /// </summary>
+    internal void SyncQueuedJobs()
+    {
+        var pending = Items.Where(i => !i.IsBusy && i.Status is ItemStatus.Waiting or ItemStatus.CrfFound or ItemStatus.Ready).ToList();
+        if (pending.Count == 0) return;
+        var newIds = new Dictionary<string, string>();
+        int changed = 0, reanalyze = 0;
+        foreach (var i in pending)
+        {
+            var key = i.ProfileId ?? "";
+            if (!newIds.TryGetValue(key, out var id))
+            {
+                id = CaptureProfile(ProfileOf(i));
+                newIds[key] = id;
+            }
+            if (i.ProfileId == id) continue;
+            i.ProfileId = id;
+            changed++;
+            if (i.Kind == ItemKind.Video && i.Mode == EncodeMode.AbAv1 && i.Search != null && i.Probe != null
+                && AbAv1Commands.SearchFingerprint(JobSettings(i), Tools, i.Probe) != i.SearchFingerprint)
+            {
+                i.InvalidateAnalysis();
+                i.Status = ItemStatus.Waiting;
+                i.StatusDetail = "Settings changed — the CRF will be searched again";
+                reanalyze++;
+            }
+        }
+        if (changed == 0) return;
+        if (reanalyze > 0) Log.Info($"Settings changed: {reanalyze} analyzed file(s) will run a new CRF search");
+        _dirty = true;
+        RefreshPlanned();
+        RefreshStorage();
     }
 
     public string SelectedProfileDescription =>

@@ -28,14 +28,14 @@
                     <Button Content="Save" Click="OnSave" Width="110" Style="{StaticResource PrimaryButtonStyle}" IsDefault="True" />
                 </StackPanel>
                 <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerText}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                <TextBlock x:Name="HintText" Text="Changes apply when you press Save. Files already in the queue keep their settings."
+                <TextBlock x:Name="HintText" Text="Changes apply when you press Save, to new files and to queued files that have not started yet."
                            Style="{StaticResource Hint}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
 
         <DockPanel>
             <StackPanel DockPanel.Dock="Left" Width="210" Margin="0,0,8,0">
-                <TextBox x:Name="SearchBox" TextChanged="OnSearch" Margin="0,0,0,8" ToolTip="Search settings (e.g. VMAF, subtitles, disk, GPU, theme)" />
+                <TextBox x:Name="SearchBox" TextChanged="OnSearch" Margin="0,0,0,8" ToolTip="Search settings (e.g. VMAF, subtitles, disk, GPU)" />
                 <TextBlock Text="Type to filter categories" Style="{StaticResource Hint}" Margin="4,-6,0,8" />
             </StackPanel>
 
@@ -72,15 +72,10 @@
                 </TabItem>
 
                 <!-- ================= APPEARANCE ================= -->
-                <TabItem Header="Appearance" Tag="appearance theme dark light animations look">
+                <TabItem Header="Appearance" Tag="appearance animations look">
                     <ScrollViewer>
                         <StackPanel>
                             <TextBlock Text="Appearance" Style="{StaticResource SectionTitle}" />
-                            <DockPanel Style="{StaticResource Row}">
-                                <TextBlock Text="Theme" Style="{StaticResource FieldLabel}" />
-                                <RadioButton Content="Dark" GroupName="theme" Margin="0,0,16,0" IsChecked="{Binding Theme, Converter={StaticResource Eq}, ConverterParameter=Dark}" />
-                                <RadioButton Content="Light" GroupName="theme" IsChecked="{Binding Theme, Converter={StaticResource Eq}, ConverterParameter=Light}" />
-                            </DockPanel>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Animations" Style="{StaticResource FieldLabel}" />
                                 <CheckBox Content="Subtle animations" IsChecked="{Binding Animations}" />

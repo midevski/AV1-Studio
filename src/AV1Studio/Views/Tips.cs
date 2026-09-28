@@ -31,9 +31,11 @@ public static class Tips
 
     public const string Samples =
         "SAMPLES\n\n" +
-        "Number of short clips AB-AV1 encodes and measures to find the CRF.\n\n" +
-        "Auto — AB-AV1 chooses from the video length (default).\n" +
-        "1–10 — a fixed number: fewer is faster, more is more accurate.";
+        "How many short segments of the video are test-encoded and measured to find the CRF.\n\n" +
+        "Auto (recommended) — AB-AV1 picks the number from the video length.\n" +
+        "1–10 — a fixed number. Fewer samples are faster, but the CRF can be off: if the samples land on " +
+        "unusually simple or complex scenes, the result can be too low in quality or produce a much larger file " +
+        "than needed. More samples are slower and more reliable.";
 
     public const string Crf =
         "CRF (CONSTANT RATE FACTOR)\n\n" +

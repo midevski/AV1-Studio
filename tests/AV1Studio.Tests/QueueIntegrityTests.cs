@@ -4,7 +4,8 @@ using AV1Studio.ViewModels;
 
 namespace AV1Studio.Tests;
 
-/// <summary>A queued job keeps the configuration it was added with; changing the UI afterwards must not alter it.</summary>
+/// <summary>Settings snapshots: a snapshot never changes afterwards (files being encoded or finished keep theirs).
+/// Files that have not started follow the screen — see CrfConsistencyTests.</summary>
 [Collection("e2e")] // shares the global AppPaths.Root with the end-to-end tests
 public class QueueIntegrityTests
 {
@@ -19,7 +20,7 @@ public class QueueIntegrityTests
     }
 
     [Fact]
-    public void Changing_settings_after_queueing_does_not_modify_queued_jobs()
+    public void A_settings_snapshot_does_not_change_when_the_screen_changes()
     {
         var home = Path.Combine(Path.GetTempPath(), "av1studio-integrity-" + Guid.NewGuid().ToString("N"));
         var previous = AppPaths.Root;

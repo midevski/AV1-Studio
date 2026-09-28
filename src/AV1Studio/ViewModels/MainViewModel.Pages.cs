@@ -234,7 +234,6 @@ public sealed partial class MainViewModel
     public void ApplySettings(AppSettings edited)
     {
         bool toolsChanged = edited.AbAv1Path != Settings.AbAv1Path || edited.FfmpegPath != Settings.FfmpegPath || edited.FfprobePath != Settings.FfprobePath;
-        bool themeChanged = edited.Theme != Settings.Theme;
         edited.Manual = Settings.Manual;           // edited on the Encode page, never replaced here
         edited.DefaultMode = Settings.DefaultMode;
         edited.ManualLevel = Settings.ManualLevel;
@@ -243,17 +242,15 @@ public sealed partial class MainViewModel
         Notify(nameof(SourceFolder), nameof(DestinationFolder), nameof(DestinationDisplay), nameof(QualityPreset),
             nameof(QualityPresetDescription), nameof(TargetVmaf), nameof(SelectedPreset), nameof(DeleteSource), nameof(ConcurrentJobs),
             nameof(SelectedPreviewCommands), nameof(AbAv1AudioSummary), nameof(AbAv1SubtitleSummary), nameof(AbAv1AnalysisSummary),
-            nameof(OutputSummary), nameof(ShowToolOutput), nameof(ThemeIsLight), nameof(SelectedProfile), nameof(SelectedProfileDescription),
+            nameof(OutputSummary), nameof(ShowToolOutput), nameof(SelectedProfile), nameof(SelectedProfileDescription),
             nameof(CpuSummary), nameof(OutputContainer), nameof(SamplesChoice));
         NotifyHardware();
         NotifyManual();
         NotifyTarget();
-        if (themeChanged) ThemeManager.Apply(Settings.Theme);
         Log.Info("Settings saved");
         if (toolsChanged || !Tools.Ready) _ = DetectToolsAsync();
     }
 
-    public bool ThemeIsLight => Settings.Theme == AppTheme.Light;
 
     public string CpuSummary =>
         $"CRF search: {ResourcePlanner.Plan(Settings.SearchCpu).Description}{Environment.NewLine}Encoding: {ResourcePlanner.Plan(Settings.EncodeCpu).Description}";
