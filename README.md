@@ -2,11 +2,15 @@
   <img src="docs/images/av1studio-256.png" width="128" alt="AV1 Studio logo">
 </p>
 
-<h1 align="center">AV1 Studio</h1>
+<h1 align="center">AV1 Studio — ab-av1 GUI</h1>
 
 <p align="center">
-  <b>Shrink your video library with AV1 — automatically, safely, without losing quality.</b><br>
-  A modern Windows app for encoding videos and whole folder trees to AV1.
+  Created by <a href="https://github.com/midevski"><b>midevski</b></a> and <a href="https://github.com/ryaann30"><b>ryaann30</b></a>
+</p>
+
+<p align="center">
+  <b>The GUI for ab-av1 on Windows: shrink your video library with AV1 — automatically, safely, without losing quality.</b><br>
+  A modern ab-av1 GUI for encoding videos and whole folder trees to AV1 with FFmpeg and SVT-AV1.
 </p>
 
 <p align="center">
@@ -45,6 +49,7 @@ originals safe.
   (each one is tested on your PC; only working encoders are offered).
 - 📦 **MKV or MP4** output, HDR10 kept, all audio and subtitle tracks preserved.
 - 🔁 **Resumable** — interrupted? Start again: finished files are reused, nothing is encoded twice.
+- ↕️ **Sortable queue** — click any column header to sort by size, duration, VMAF, CRF, preset, status, time…
 
 ## Screenshots
 
@@ -197,3 +202,7 @@ It is powered by [FFmpeg](https://ffmpeg.org/), [SVT-AV1](https://gitlab.com/AOM
 **not** bundled with AV1 Studio; they are downloaded from their official sources at your request and keep their
 own licenses (FFmpeg: LGPL/GPL depending on the build; SVT-AV1: BSD-3-Clause-Clear; ab-av1: MIT;
 VMAF: BSD-2-Clause-Patent).
+
+---
+
+<sub>Note: AI assistance was used in the development of this project.</sub>

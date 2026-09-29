@@ -4,7 +4,7 @@
 ; Output: installer\Output\AV1Studio-Setup-<version>.exe
 
 #define AppName "AV1 Studio"
-#define AppVersion "1.0.1"
+#define AppVersion "1.0.2"
 #define AppPublisher "AV1 Studio contributors"
 #define AppExe "AV1Studio.exe"
 #define AppId "AV1Studio.AV1Studio"

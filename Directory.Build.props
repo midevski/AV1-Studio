@@ -1,7 +1,7 @@
 <Project>
   <!-- Single place for the application identity and version. -->
   <PropertyGroup>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Product>AV1 Studio</Product>
     <Company>AV1 Studio contributors</Company>
     <Authors>AV1 Studio contributors</Authors>

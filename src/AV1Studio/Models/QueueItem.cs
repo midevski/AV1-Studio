@@ -393,6 +393,26 @@ public sealed class QueueItem : ObservableObject
     [JsonIgnore] public string ElapsedText => Fmt.Duration(Elapsed);
     [JsonIgnore] public string EtaText => Fmt.Duration(Eta);
 
+    // ---- sort keys: the real values behind the formatted columns (sizes in bytes, times in seconds…) ----
+    [JsonIgnore] public double? SortTarget => Number(TargetText, @"(\d+(?:[.,]\d+)?)\s*$"); // "VMAF 93", "CQ 28"
+    [JsonIgnore] public double? SortCrf => CrfOverride ?? Search?.Crf ?? (Mode == EncodeMode.Manual ? ManualQuality : null);
+    /// <summary>"5" / "p5" sort by number; named presets ("ab-av1 default", "veryslow") have no number and go last.</summary>
+    [JsonIgnore] public double? SortPreset => Number(PresetText, @"^\s*[pP]?(\d+)\s*$");
+    [JsonIgnore] public double? SortDuration => Probe?.DurationSeconds;
+    [JsonIgnore] public long? SortPixels => Probe?.MainVideo is { Width: int w, Height: int h } ? (long)w * h : null;
+    [JsonIgnore] public double? SortVmaf => Search?.Vmaf;
+    [JsonIgnore] public long? SortEstimatedSize => Search?.PredictedSize;
+    [JsonIgnore] public long? SortOutputSize => ActualOutputSize ?? CurrentOutputSize;
+    [JsonIgnore] public double? SortRatio => SortOutputSize is long o && SourceSize > 0 ? (double)o / SourceSize : null;
+
+    private static double? Number(string? text, string pattern)
+    {
+        if (string.IsNullOrEmpty(text)) return null;
+        var m = System.Text.RegularExpressions.Regex.Match(text, pattern);
+        return m.Success && double.TryParse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
+    }
+
     [JsonIgnore]
     public string SourceStateText => SourceDeleted ? "Source deleted" :
         Status is ItemStatus.Failed or ItemStatus.Cancelled ? "Source: PRESERVED" : "";

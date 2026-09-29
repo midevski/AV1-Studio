@@ -255,6 +255,12 @@
                     <Button Content="Preview selected…" Command="{Binding PreviewSelectedCommand}" Padding="10,3" ToolTip="Encode a short sample of the selected file with its settings (Ctrl+R)" />
                 </WrapPanel>
 
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding IsSorted, Converter={StaticResource BoolVis}}">
+                    <Button DockPanel.Dock="Left" Content="Reset sort" Command="{Binding ResetSortCommand}" Padding="10,2" Margin="0,0,8,0"
+                            ToolTip="Show the queue in processing order again" />
+                    <TextBlock Text="{Binding SortText}" Style="{StaticResource Hint}" VerticalAlignment="Center" />
+                </DockPanel>
+
                 <!-- folder progress -->
                 <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding FolderSummaries}" Visibility="{Binding HasFolders, Converter={StaticResource BoolVis}}" Margin="0,0,0,6">
                     <ItemsControl.ItemTemplate>
@@ -291,7 +297,7 @@
                 <Grid>
                     <DataGrid x:Name="QueueGrid" ItemsSource="{Binding ItemsView}" SelectedItem="{Binding SelectedItem}"
                               AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow"
-                              HeadersVisibility="Column" GridLinesVisibility="None" CanUserReorderColumns="True" CanUserSortColumns="False"
+                              HeadersVisibility="Column" GridLinesVisibility="None" CanUserReorderColumns="True" CanUserSortColumns="True" Sorting="OnQueueSorting"
                               EnableRowVirtualization="True" EnableColumnVirtualization="True"
                               VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.IsVirtualizing="True"
                               VirtualizingPanel.IsVirtualizingWhenGrouping="True" ScrollViewer.CanContentScroll="True"
@@ -341,7 +347,7 @@
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="File" Width="250">
+                            <DataGridTemplateColumn Header="File" SortMemberPath="FileName" Width="250">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding SourcePath}">
@@ -351,7 +357,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Status" Width="120">
+                            <DataGridTemplateColumn Header="Status" SortMemberPath="Status" Width="120">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding StatusDetail}">
@@ -361,7 +367,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Progress" Width="120">
+                            <DataGridTemplateColumn Header="Progress" SortMemberPath="Progress" Width="120">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Grid VerticalAlignment="Center" Margin="0,0,6,0">
@@ -373,25 +379,26 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Mode" Binding="{Binding ModeText}" Width="80" />
-                            <DataGridTextColumn Header="Target" Binding="{Binding TargetText}" Width="72" />
-                            <DataGridTextColumn Header="Output" Binding="{Binding OutputContainer}" Width="60" />
-                            <DataGridTextColumn Header="Encoder" Binding="{Binding EncoderText}" Width="110" />
-                            <DataGridTextColumn Header="CRF" Binding="{Binding CrfText}" Width="70" />
-                            <DataGridTextColumn Header="Preset" Binding="{Binding PresetText}" Width="96" />
-                            <DataGridTextColumn Header="Size" Binding="{Binding SourceSizeText}" Width="72" />
-                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" Width="66" />
-                            <DataGridTextColumn Header="Resolution" Binding="{Binding Resolution}" Width="84" />
-                            <DataGridTextColumn Header="Codec" Binding="{Binding VideoCodec}" Width="58" />
-                            <DataGridTextColumn Header="HDR" Binding="{Binding HdrText}" Width="60" />
-                            <DataGridTextColumn Header="VMAF" Binding="{Binding VmafText}" Width="54" />
-                            <DataGridTextColumn Header="Est. size" Binding="{Binding EstimatedSizeText}" Width="72" />
-                            <DataGridTextColumn Header="Output" Binding="{Binding OutputSizeText}" Width="72" />
-                            <DataGridTextColumn Header="Ratio" Binding="{Binding CompressionText}" Width="100" />
-                            <DataGridTextColumn Header="FPS" Binding="{Binding CurrentFps, StringFormat={}{0:0.#}, TargetNullValue=''}" Width="50" />
-                            <DataGridTextColumn Header="Bitrate" Binding="{Binding AverageBitrateKbps, StringFormat={}{0:0} kb/s, TargetNullValue=''}" Width="80" />
-                            <DataGridTextColumn Header="ETA" Binding="{Binding EtaText}" Width="62" />
-                            <DataGridTextColumn Header="Relative path" Binding="{Binding RelativePath}" Width="260" />
+                            <DataGridTextColumn Header="Mode" Binding="{Binding ModeText}" SortMemberPath="ModeText" Width="80" />
+                            <DataGridTextColumn Header="Target" Binding="{Binding TargetText}" SortMemberPath="SortTarget" Width="72" />
+                            <DataGridTextColumn Header="Output" Binding="{Binding OutputContainer}" SortMemberPath="OutputContainer" Width="60" />
+                            <DataGridTextColumn Header="Encoder" Binding="{Binding EncoderText}" SortMemberPath="EncoderText" Width="110" />
+                            <DataGridTextColumn Header="CRF" Binding="{Binding CrfText}" SortMemberPath="SortCrf" Width="70" />
+                            <DataGridTextColumn Header="Preset" Binding="{Binding PresetText}" SortMemberPath="SortPreset" Width="96" />
+                            <DataGridTextColumn Header="Size" Binding="{Binding SourceSizeText}" SortMemberPath="SourceSize" Width="72" />
+                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" SortMemberPath="SortDuration" Width="66" />
+                            <DataGridTextColumn Header="Resolution" Binding="{Binding Resolution}" SortMemberPath="SortPixels" Width="84" />
+                            <DataGridTextColumn Header="Codec" Binding="{Binding VideoCodec}" SortMemberPath="VideoCodec" Width="58" />
+                            <DataGridTextColumn Header="HDR" Binding="{Binding HdrText}" SortMemberPath="HdrText" Width="60" />
+                            <DataGridTextColumn Header="VMAF" Binding="{Binding VmafText}" SortMemberPath="SortVmaf" Width="54" />
+                            <DataGridTextColumn Header="Est. size" Binding="{Binding EstimatedSizeText}" SortMemberPath="SortEstimatedSize" Width="72" />
+                            <DataGridTextColumn Header="Output" Binding="{Binding OutputSizeText}" SortMemberPath="SortOutputSize" Width="72" />
+                            <DataGridTextColumn Header="Time" Binding="{Binding ElapsedText}" SortMemberPath="Elapsed" Width="62" />
+                            <DataGridTextColumn Header="Ratio" Binding="{Binding CompressionText}" SortMemberPath="SortRatio" Width="100" />
+                            <DataGridTextColumn Header="FPS" Binding="{Binding CurrentFps, StringFormat={}{0:0.#}, TargetNullValue=''}" SortMemberPath="CurrentFps" Width="50" />
+                            <DataGridTextColumn Header="Bitrate" Binding="{Binding AverageBitrateKbps, StringFormat={}{0:0} kb/s, TargetNullValue=''}" SortMemberPath="AverageBitrateKbps" Width="80" />
+                            <DataGridTextColumn Header="ETA" Binding="{Binding EtaText}" SortMemberPath="Eta" Width="62" />
+                            <DataGridTextColumn Header="Relative path" Binding="{Binding RelativePath}" SortMemberPath="RelativePath" Width="260" />
                         </DataGrid.Columns>
                     </DataGrid>
 

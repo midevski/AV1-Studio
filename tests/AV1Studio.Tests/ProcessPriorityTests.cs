@@ -59,10 +59,25 @@ public class ProcessPriorityTests : IDisposable
             catch (InvalidOperationException) { /* exited meanwhile */ }
         }
 
+        if (expected == ProcessPriorityClass.High)
+        {
+            // something lowers the encoder's priority mid-encode (Windows efficiency mode, another program…):
+            // it must be restored within about a second, for as long as the encode runs
+            var ffmpegProcess = tree.First(p => SafeName(p) == "ffmpeg");
+            ffmpegProcess.PriorityClass = ProcessPriorityClass.Normal;
+            await Task.Delay(2500);
+            ffmpegProcess.Refresh();
+            if (!ffmpegProcess.HasExited) Assert.Equal(ProcessPriorityClass.High, ffmpegProcess.PriorityClass);
+            // AV1 Studio itself keeps up with High-priority encoders, so the window stays responsive
+            Assert.Equal(ProcessPriorityClass.High, Process.GetCurrentProcess().PriorityClass);
+        }
+
         child.Kill();
         await child.WaitAsync();
         await Task.Delay(500);
         foreach (var p in tree) { p.Refresh(); Assert.True(p.HasExited, $"{SafeName(p)} survived Stop"); }
+        child.Dispose();
+        Assert.NotEqual(ProcessPriorityClass.High, Process.GetCurrentProcess().PriorityClass); // back to normal afterwards
     }
 
     private static string SafeName(Process p)

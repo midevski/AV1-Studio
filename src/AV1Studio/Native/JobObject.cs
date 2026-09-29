@@ -156,9 +156,14 @@ public sealed class JobObject : IDisposable
 }
 
 /// <summary>
-/// Raises every process that joins a watched job to the requested priority class, the moment Windows reports it
-/// (JOB_OBJECT_MSG_NEW_PROCESS on one shared I/O completion port). Used for High / Above normal, which a job
-/// cannot enforce itself without administrator rights.
+/// Keeps every process of a watched job at the requested priority class (High / Above normal, which a job cannot
+/// enforce itself without administrator rights) for the whole lifetime of the job:
+/// * each new process is raised the moment Windows reports it (JOB_OBJECT_MSG_NEW_PROCESS);
+/// * because those notifications are not guaranteed, and Windows or other programs can lower a priority later
+///   (e.g. efficiency mode), every process of every watched job is re-checked once per second and restored;
+/// * Windows power throttling (EcoQoS) is switched off for the encoder processes;
+/// * the enforcer thread runs at time-critical priority, so busy encoder threads can never starve it, and
+///   AV1 Studio itself is raised to the same class while such jobs run, so the window stays responsive.
 /// </summary>
 internal static class PriorityEnforcer
 {
@@ -166,14 +171,29 @@ internal static class PriorityEnforcer
     private const uint JOB_OBJECT_MSG_NEW_PROCESS = 6;
     private const uint PROCESS_SET_INFORMATION = 0x0200;
     private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+    private const uint WAIT_TIMEOUT = 258;
+    private const int ProcessPowerThrottling = 4;
+    private const uint PROCESS_POWER_THROTTLING_CURRENT_VERSION = 1;
+    private const uint PROCESS_POWER_THROTTLING_EXECUTION_SPEED = 0x1;
+    private static readonly TimeSpan SweepInterval = TimeSpan.FromSeconds(1);
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<nuint, uint> Watched = new();
+    private sealed record Entry(JobObject Job, uint Priority)
+    {
+        /// <summary>Processes whose power throttling was already switched off (done once per process).</summary>
+        public HashSet<int> Unthrottled { get; } = new();
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<nuint, Entry> Watched = new();
     private static readonly object Gate = new();
     private static IntPtr _port;
     private static long _nextKey;
+    private static ProcessPriorityClass? _ownOriginal;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct JOBOBJECT_ASSOCIATE_COMPLETION_PORT { public IntPtr CompletionKey; public IntPtr CompletionPort; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROCESS_POWER_THROTTLING_STATE { public uint Version; public uint ControlMask; public uint StateMask; }
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern IntPtr CreateIoCompletionPort(IntPtr file, IntPtr existingPort, UIntPtr key, uint threads);
@@ -187,6 +207,12 @@ internal static class PriorityEnforcer
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetPriorityClass(IntPtr process, uint priorityClass);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint GetPriorityClass(IntPtr process);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetProcessInformation(IntPtr process, int infoClass, ref PROCESS_POWER_THROTTLING_STATE info, uint size);
+
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(IntPtr h);
 
@@ -198,11 +224,11 @@ internal static class PriorityEnforcer
             {
                 _port = CreateIoCompletionPort(new IntPtr(-1), IntPtr.Zero, UIntPtr.Zero, 1);
                 if (_port == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
-                new Thread(Loop) { IsBackground = true, Name = "priority enforcer" }.Start();
+                new Thread(Loop) { IsBackground = true, Name = "priority enforcer", Priority = ThreadPriority.Highest }.Start();
             }
         }
         var key = (nuint)Interlocked.Increment(ref _nextKey);
-        Watched[key] = (uint)priority;
+        Watched[key] = new Entry(job, (uint)priority);
         job.EnforcerKey = key;
         var info = new JOBOBJECT_ASSOCIATE_COMPLETION_PORT { CompletionKey = (IntPtr)key, CompletionPort = _port };
         int len = Marshal.SizeOf<JOBOBJECT_ASSOCIATE_COMPLETION_PORT>();
@@ -214,23 +240,105 @@ internal static class PriorityEnforcer
                 throw new Win32Exception(Marshal.GetLastWin32Error());
         }
         finally { Marshal.FreeHGlobal(ptr); }
+        UpdateOwnPriority();
     }
 
     public static void Forget(JobObject job)
     {
-        if (job.EnforcerKey is nuint key) Watched.TryRemove(key, out _);
+        if (job.EnforcerKey is nuint key && Watched.TryRemove(key, out _)) UpdateOwnPriority();
     }
+
+    /// <summary>AV1 Studio runs at the highest watched class while such jobs run (it is mostly idle), and returns
+    /// to its original class afterwards.</summary>
+    private static void UpdateOwnPriority()
+    {
+        lock (Gate)
+        {
+            try
+            {
+                using var self = Process.GetCurrentProcess();
+                if (Watched.IsEmpty)
+                {
+                    if (_ownOriginal is ProcessPriorityClass original) self.PriorityClass = original;
+                    _ownOriginal = null;
+                    return;
+                }
+                _ownOriginal ??= self.PriorityClass;
+                var highest = Watched.Values.Max(e => Rank((ProcessPriorityClass)e.Priority));
+                var target = highest >= Rank(ProcessPriorityClass.High) ? ProcessPriorityClass.High : ProcessPriorityClass.AboveNormal;
+                if (Rank(target) > Rank(self.PriorityClass)) self.PriorityClass = target;
+            }
+            catch { /* cosmetic: only affects the window's responsiveness */ }
+        }
+    }
+
+    private static int Rank(ProcessPriorityClass c) => c switch
+    {
+        ProcessPriorityClass.Idle => 0,
+        ProcessPriorityClass.BelowNormal => 1,
+        ProcessPriorityClass.Normal => 2,
+        ProcessPriorityClass.AboveNormal => 3,
+        ProcessPriorityClass.High => 4,
+        _ => 5,
+    };
 
     private static void Loop()
     {
+        // time-critical within this process: always scheduled ahead of the encoder threads it supervises
+        try { Thread.CurrentThread.Priority = ThreadPriority.Highest; SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL); } catch { }
+        var nextSweep = DateTime.UtcNow + SweepInterval;
         while (true)
         {
-            if (!GetQueuedCompletionStatus(_port, out uint msg, out var key, out var data, uint.MaxValue)) continue;
-            if (msg != JOB_OBJECT_MSG_NEW_PROCESS || !Watched.TryGetValue((nuint)key, out uint priority)) continue;
-            var h = OpenProcess(PROCESS_SET_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION, false, (int)data);
-            if (h == IntPtr.Zero) continue; // already exited
-            SetPriorityClass(h, priority);
-            CloseHandle(h);
+            uint wait = (uint)Math.Max(0, (nextSweep - DateTime.UtcNow).TotalMilliseconds);
+            if (GetQueuedCompletionStatus(_port, out uint msg, out var key, out var data, wait))
+            {
+                if (msg == JOB_OBJECT_MSG_NEW_PROCESS && Watched.TryGetValue((nuint)key, out var entry))
+                    Enforce(entry, (int)data);
+            }
+            if (DateTime.UtcNow >= nextSweep)
+            {
+                foreach (var entry in Watched.Values)
+                {
+                    int[] ids;
+                    try { ids = entry.Job.ProcessIds(); } catch { continue; }
+                    foreach (var pid in ids) Enforce(entry, pid);
+                    lock (entry.Unthrottled) entry.Unthrottled.IntersectWith(ids); // forget exited processes
+                }
+                nextSweep = DateTime.UtcNow + SweepInterval;
+            }
         }
     }
+
+    /// <summary>Restores the priority class if it differs, and switches power throttling off once.</summary>
+    private static void Enforce(Entry entry, int pid)
+    {
+        var h = OpenProcess(PROCESS_SET_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == IntPtr.Zero) return; // already exited
+        try
+        {
+            if (GetPriorityClass(h) != entry.Priority) SetPriorityClass(h, entry.Priority);
+            bool first;
+            lock (entry.Unthrottled) first = entry.Unthrottled.Add(pid);
+            if (first)
+            {
+                // ControlMask = execution speed, StateMask = 0 → never throttle (no EcoQoS / efficiency mode)
+                var state = new PROCESS_POWER_THROTTLING_STATE
+                {
+                    Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+                    ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+                    StateMask = 0,
+                };
+                SetProcessInformation(h, ProcessPowerThrottling, ref state, (uint)Marshal.SizeOf<PROCESS_POWER_THROTTLING_STATE>());
+            }
+        }
+        finally { CloseHandle(h); }
+    }
+
+    private const int THREAD_PRIORITY_TIME_CRITICAL = 15;
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentThread();
+
+    [DllImport("kernel32.dll")]
+    private static extern bool SetThreadPriority(IntPtr thread, int priority);
 }

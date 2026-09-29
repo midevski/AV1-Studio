@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
@@ -60,6 +61,7 @@ public partial class MainWindow : Window
             }, DispatcherPriority.ContextIdle);
         };
 
+        _vm.SortReset += () => { foreach (var c in QueueGrid.Columns) c.SortDirection = null; };
         InputBindings.Add(new KeyBinding(new Mvvm.RelayCommand(() => FilterBox.Focus()), Key.F, ModifierKeys.Control));
 
         Loaded += async (_, _) =>
@@ -74,6 +76,23 @@ public partial class MainWindow : Window
             _vm.Settings.WindowHeight = ActualHeight;
             _vm.Shutdown();
         };
+    }
+
+    /// <summary>Header click: ascending → descending → queue order. Sorting is done by the view model (view only).</summary>
+    private void OnQueueSorting(object sender, DataGridSortingEventArgs e)
+    {
+        e.Handled = true;
+        var column = e.Column;
+        if (string.IsNullOrEmpty(column.SortMemberPath)) return;
+        ListSortDirection? next = column.SortDirection switch
+        {
+            null => ListSortDirection.Ascending,
+            ListSortDirection.Ascending => ListSortDirection.Descending,
+            _ => null,
+        };
+        foreach (var c in QueueGrid.Columns) c.SortDirection = null;
+        _vm.SortQueue(column.SortMemberPath, column.Header as string, next);
+        column.SortDirection = next;
     }
 
     private void OnGridSelectionChanged(object sender, SelectionChangedEventArgs e) =>

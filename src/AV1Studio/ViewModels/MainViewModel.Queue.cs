@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Windows.Data;
 using AV1Studio.Models;
 using AV1Studio.Mvvm;
 using AV1Studio.Services;
@@ -165,6 +167,85 @@ public sealed partial class MainViewModel
                     : s.Preset?.ToString() ?? "ab-av1 default";
                 i.TargetText = $"VMAF {Fmt.Num(s.TargetVmaf)}";
             }
+        }
+    }
+
+    // =================================================================== sorting (view only)
+
+    private string? _sortHeader;
+    private ListSortDirection? _sortDirection;
+
+    /// <summary>"Sorted by Size ↓", or empty when the queue is shown in processing order.</summary>
+    public string SortText => _sortHeader is null ? "" :
+        $"Sorted by {_sortHeader} {(_sortDirection == ListSortDirection.Descending ? "↓" : "↑")} — files are still processed in queue order";
+
+    public bool IsSorted => _sortHeader != null;
+
+    public RelayCommand ResetSortCommand => _resetSort ??= new RelayCommand(() => SortQueue(null, null, null));
+    private RelayCommand? _resetSort;
+
+    /// <summary>Raised when the sort is reset from the view model, so the grid can clear its header arrows.</summary>
+    public event Action? SortReset;
+
+    /// <summary>
+    /// Sorts the queue view by a property of <see cref="QueueItem"/>, inside each folder group. Only the view is
+    /// sorted: the queue itself (and the order files are processed in) is unchanged. One comparer with cached
+    /// property getters means a single refresh per click, and rows do not move while files are encoding.
+    /// </summary>
+    public void SortQueue(string? property, string? header, ListSortDirection? direction)
+    {
+        var view = (ListCollectionView)ItemsView;
+        if (property is null || direction is null)
+        {
+            view.CustomSort = null;
+            _sortHeader = null;
+            _sortDirection = null;
+            SortReset?.Invoke();
+        }
+        else
+        {
+            view.CustomSort = new QueueSorter(property, direction.Value);
+            _sortHeader = header;
+            _sortDirection = direction;
+        }
+        view.Refresh(); // replacing CustomSort alone is not always re-applied while a DataGrid holds the view
+        Notify(nameof(SortText), nameof(IsSorted));
+    }
+
+    private sealed class QueueSorter : System.Collections.IComparer
+    {
+        private static readonly Dictionary<string, Func<QueueItem, object?>> Getters = new();
+        private readonly Func<QueueItem, object?> _get;
+        private readonly int _sign;
+
+        public QueueSorter(string property, ListSortDirection direction)
+        {
+            lock (Getters)
+            {
+                if (!Getters.TryGetValue(property, out var g))
+                {
+                    var pi = typeof(QueueItem).GetProperty(property) ?? throw new ArgumentException($"Unknown column {property}");
+                    g = i => pi.GetValue(i);
+                    Getters[property] = g;
+                }
+                _get = g;
+            }
+            _sign = direction == ListSortDirection.Descending ? -1 : 1;
+        }
+
+        public int Compare(object? x, object? y)
+        {
+            if (x is not QueueItem a || y is not QueueItem b) return 0;
+            // folder groups stay together, in name order
+            int g = string.Compare(a.GroupKey, b.GroupKey, StringComparison.CurrentCultureIgnoreCase);
+            if (g != 0) return g;
+            object? va = _get(a), vb = _get(b);
+            // empty values always go last, whatever the direction
+            if (va is null || vb is null) return va is null ? (vb is null ? 0 : 1) : -1;
+            int c = va is string sa && vb is string sb
+                ? string.Compare(sa, sb, StringComparison.CurrentCultureIgnoreCase)
+                : Comparer<object>.Default.Compare(va, vb);
+            return c * _sign;
         }
     }
 }
